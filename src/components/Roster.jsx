@@ -373,7 +373,9 @@ export default function Roster({ activeClass, students, onSaveRoster }) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-slate-400">
-                    No matching learners found in {activeClass}.
+                    {students.length === 0
+                      ? `No learners registered in ${activeClass} yet. Add learners above or import from CSV.`
+                      : `No matching learners found in ${activeClass}.`}
                   </td>
                 </tr>
               )}

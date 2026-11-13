@@ -120,7 +120,7 @@ export default function AdminDashboard({
           </div>
           <div className="text-3xl font-black">{smsLogs.length}</div>
           <div className="text-xs text-slate-500 dark:text-zinc-400">
-            Next PTA: {schoolProfile.ptaMeeting?.date}
+            Next PTA: {schoolProfile.ptaMeeting?.date || 'Not scheduled'}
           </div>
         </div>
       </div>
@@ -141,23 +141,29 @@ export default function AdminDashboard({
             </button>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-            {topFive.map((s) => (
-              <div key={s.sn} className="px-5 py-3 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-black flex items-center justify-center shrink-0">
-                    {s.overallRank}
-                  </span>
-                  <div className="truncate">
-                    <div className="font-bold truncate">{s.name}</div>
-                    <div className="text-[11px] text-slate-400">{s.indexNo} • {s.division}</div>
+            {topFive.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-400">
+                No learners enrolled in {activeClass} yet. Add learners in Students &amp; Parents to begin.
+              </div>
+            ) : (
+              topFive.map((s) => (
+                <div key={s.sn} className="px-5 py-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 font-black flex items-center justify-center shrink-0">
+                      {s.overallRank}
+                    </span>
+                    <div className="truncate">
+                      <div className="font-bold truncate">{s.name}</div>
+                      <div className="text-[11px] text-slate-400">{s.indexNo} • {s.division}</div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <div className="font-black text-sm text-emerald-700 dark:text-emerald-400">Agg {s.aggregate}</div>
+                    <div className="text-[11px] text-slate-400 font-mono">{s.overallTotal}/900</div>
                   </div>
                 </div>
-                <div className="text-right shrink-0 ml-2">
-                  <div className="font-black text-sm text-emerald-700 dark:text-emerald-400">Agg {s.aggregate}</div>
-                  <div className="text-[11px] text-slate-400 font-mono">{s.overallTotal}/900</div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -175,23 +181,29 @@ export default function AdminDashboard({
             </button>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-            {bottomFive.map((s) => (
-              <div key={s.sn} className="px-5 py-3 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-black flex items-center justify-center shrink-0">
-                    {s.overallRank}
-                  </span>
-                  <div className="truncate">
-                    <div className="font-bold truncate">{s.name}</div>
-                    <div className="text-[11px] text-slate-400">Parent: {s.parentName} ({s.parentPhone})</div>
+            {bottomFive.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-400">
+                Intervention alerts will populate automatically once learners and mock scores are added.
+              </div>
+            ) : (
+              bottomFive.map((s) => (
+                <div key={s.sn} className="px-5 py-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-black flex items-center justify-center shrink-0">
+                      {s.overallRank}
+                    </span>
+                    <div className="truncate">
+                      <div className="font-bold truncate">{s.name}</div>
+                      <div className="text-[11px] text-slate-400">Parent: {s.parentName} ({s.parentPhone})</div>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <div className="font-black text-sm text-rose-600 dark:text-rose-400">Agg {s.aggregate}</div>
+                    <div className="text-[11px] text-slate-400 font-mono">{s.overallTotal}/900</div>
                   </div>
                 </div>
-                <div className="text-right shrink-0 ml-2">
-                  <div className="font-black text-sm text-rose-600 dark:text-rose-400">Agg {s.aggregate}</div>
-                  <div className="text-[11px] text-slate-400 font-mono">{s.overallTotal}/900</div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -210,18 +222,24 @@ export default function AdminDashboard({
               Edit Details
             </button>
           </div>
-          <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2">
-            <div className="font-bold text-sm text-amber-950 dark:text-amber-200">{schoolProfile.ptaMeeting?.title}</div>
-            <div className="text-xs text-amber-800 dark:text-amber-300">
-              <strong>Date &amp; Time:</strong> {schoolProfile.ptaMeeting?.date} at {schoolProfile.ptaMeeting?.time}
+          {schoolProfile.ptaMeeting?.title ? (
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2">
+              <div className="font-bold text-sm text-amber-950 dark:text-amber-200">{schoolProfile.ptaMeeting.title}</div>
+              <div className="text-xs text-amber-800 dark:text-amber-300">
+                <strong>Date &amp; Time:</strong> {schoolProfile.ptaMeeting?.date || '-'} at {schoolProfile.ptaMeeting?.time || '-'}
+              </div>
+              <div className="text-xs text-amber-800 dark:text-amber-300">
+                <strong>Venue:</strong> {schoolProfile.ptaMeeting?.venue || '-'}
+              </div>
+              <div className="text-xs text-amber-800/90 dark:text-amber-300/80">
+                <strong>Agenda:</strong> {schoolProfile.ptaMeeting?.agenda || '-'}
+              </div>
             </div>
-            <div className="text-xs text-amber-800 dark:text-amber-300">
-              <strong>Venue:</strong> {schoolProfile.ptaMeeting?.venue}
+          ) : (
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-500 dark:text-zinc-400">
+              No PTA meeting scheduled yet. Click <strong>Edit Details</strong> to configure your next PTA notice.
             </div>
-            <div className="text-xs text-amber-800/90 dark:text-amber-300/80">
-              <strong>Agenda:</strong> {schoolProfile.ptaMeeting?.agenda}
-            </div>
-          </div>
+          )}
           <button
             onClick={() => onNavigateTab('sms')}
             className="w-full py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors"

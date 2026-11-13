@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Lock, Mail, ArrowLeft, KeyRound, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Lock, Mail, ArrowLeft, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite }) {
@@ -24,10 +24,8 @@ export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite })
 
     const cleanEmail = email.trim().toLowerCase();
     const validAccounts = [
-      { email: 'admin@kpandoanglican.edu.gh', pass: 'admin123', name: 'School Administrator', role: 'Super Admin' },
-      { email: 'admin@school.edu.gh', pass: 'admin123', name: 'School Administrator', role: 'Super Admin' },
-      { email: 'headmaster@kpandoanglican.edu.gh', pass: 'admin123', name: 'Mr. Emmanuel K. Adjei', role: 'Headmaster' },
-      { email: 'basic9@kpandoanglican.edu.gh', pass: 'teacher123', name: 'Mr. Godwin Mensah', role: 'Basic 9 Form Master' }
+      { email: 'head@anglican.com', pass: '12Big34Tree!', name: 'Headmaster', role: 'Headmaster' },
+      { email: 'b9teacher@anglican.com', pass: '12Big34Tree!', name: 'Basic 9 Teacher', role: 'Basic 9 Form Master' }
     ];
 
     const matched = validAccounts.find((a) => a.email === cleanEmail && a.pass === password);
@@ -52,12 +50,6 @@ export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite })
     } else {
       setError(`Invalid credentials (${5 - nextAttempts} attempts remaining).`);
     }
-  };
-
-  const fillDemoAdmin = () => {
-    setEmail('admin@kpandoanglican.edu.gh');
-    setPassword('admin123');
-    setError('');
   };
 
   return (
@@ -94,7 +86,7 @@ export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite })
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-              Administrator Email
+              Staff Email
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -103,7 +95,7 @@ export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite })
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@school.edu.gh"
+                placeholder="Enter your email address"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-emerald-600 outline-none"
               />
             </div>
@@ -138,26 +130,9 @@ export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite })
             disabled={lockoutSeconds > 0}
             className="w-full py-3 rounded-xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition-all"
           >
-            {lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Sign In to Admin Portal'}
+            {lockoutSeconds > 0 ? `Locked (${lockoutSeconds}s)` : 'Sign In to Portal'}
           </button>
         </form>
-
-        <div className="pt-4 border-t border-slate-200 dark:border-zinc-800 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Demo Access</span>
-            <button
-              type="button"
-              onClick={fillDemoAdmin}
-              className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
-            >
-              <KeyRound className="w-3.5 h-3.5" /> Fill Admin Credentials
-            </button>
-          </div>
-          <div className="text-[11px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-900/70 rounded-xl p-3 font-mono space-y-1">
-            <div>Admin: <strong>admin@kpandoanglican.edu.gh</strong> / <strong>admin123</strong></div>
-            <div>Basic 9 Teacher: <strong>basic9@kpandoanglican.edu.gh</strong> / <strong>teacher123</strong></div>
-          </div>
-        </div>
       </div>
     </div>
   );

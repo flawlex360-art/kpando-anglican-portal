@@ -191,7 +191,14 @@ export default function MockGradebook({
                 </tr>
               </thead>
               <tbody>
-                {students.map((student, rIdx) => {
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan={JHS_SUBJECTS.length + 4} className="py-10 text-center text-slate-400">
+                      No learners enrolled in {activeClass} yet. Add learners in the Students &amp; Parents tab first.
+                    </td>
+                  </tr>
+                ) : (
+                  students.map((student, rIdx) => {
                   const row = localScores[student.sn] || {};
                   const subjectMapForAgg = {};
                   let rowTotal = 0;
@@ -247,7 +254,8 @@ export default function MockGradebook({
                       </td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
@@ -266,7 +274,14 @@ export default function MockGradebook({
                 </tr>
               </thead>
               <tbody>
-                {students.map((student, rIdx) => {
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-slate-400">
+                      No learners enrolled in {activeClass} yet. Add learners in the Students &amp; Parents tab first.
+                    </td>
+                  </tr>
+                ) : (
+                  students.map((student, rIdx) => {
                   const rawVal = localScores?.[student.sn]?.[activeSubject.key] ?? '';
                   const numScore = parseFloat(rawVal) || 0;
                   const { grade, numericGrade, remark } = calculateGrade(numScore);
@@ -303,7 +318,8 @@ export default function MockGradebook({
                       <td className="px-3 py-2 font-medium">{remark}</td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>

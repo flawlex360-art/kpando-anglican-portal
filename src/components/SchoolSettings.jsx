@@ -63,10 +63,14 @@ export default function SchoolSettings({ schoolProfile, onSaveProfile, onResetDe
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={onResetDemoData}
+              onClick={() => {
+                if (window.confirm('Clear all learners, mock marks, SMS logs, inquiries, and Basic 9 finance records? This cannot be undone.')) {
+                  onResetDemoData();
+                }
+              }}
               className="px-3.5 py-2 rounded-xl border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Reset Demo Data
+              <RotateCcw className="w-3.5 h-3.5" /> Clear All Records
             </button>
             <button
               type="submit"
@@ -263,22 +267,28 @@ export default function SchoolSettings({ schoolProfile, onSaveProfile, onResetDe
         </div>
 
         <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-          {(draft.announcements || []).map((a) => (
-            <div key={a.id} className="py-3 flex items-center justify-between gap-4 text-xs">
-              <div>
-                <span className="font-bold">{a.title}</span>{' '}
-                <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">({a.category} • {a.date})</span>
-                <p className="text-slate-500 dark:text-zinc-400 mt-0.5">{a.summary}</p>
+          {(draft.announcements || []).length === 0 ? (
+            <p className="py-6 text-center text-xs text-slate-400">
+              No announcements published yet. Use the form above to post a notice on the public website.
+            </p>
+          ) : (
+            (draft.announcements || []).map((a) => (
+              <div key={a.id} className="py-3 flex items-center justify-between gap-4 text-xs">
+                <div>
+                  <span className="font-bold">{a.title}</span>{' '}
+                  <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">({a.category} • {a.date})</span>
+                  <p className="text-slate-500 dark:text-zinc-400 mt-0.5">{a.summary}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAnnouncement(a.id)}
+                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDeleteAnnouncement(a.id)}
-                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

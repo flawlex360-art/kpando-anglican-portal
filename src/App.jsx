@@ -31,7 +31,9 @@ import SmsCenter from './components/SmsCenter';
 import SchoolSettings from './components/SchoolSettings';
 import { isFirebaseConfigured, loadPortalFromFirestore, savePortalToFirestore } from './utils/firebase';
 
-const STORAGE_KEY = 'kpando_anglican_basic_school_v1';
+const STORAGE_KEY = 'kpando_anglican_basic_school_live_v1';
+const LEGACY_DEMO_STORAGE_KEY = 'kpando_anglican_basic_school_v1';
+const AUTHORIZED_EMAILS = ['head@anglican.com', 'b9teacher@anglican.com'];
 
 function normalizeSchoolProfile(profile) {
   if (!profile) return profile;
@@ -46,6 +48,7 @@ function normalizeSchoolProfile(profile) {
 
 function loadInitialState() {
   try {
+    localStorage.removeItem(LEGACY_DEMO_STORAGE_KEY);
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -54,6 +57,12 @@ function loadInitialState() {
       }
       if (parsed?.gatewayConfig?.senderId === 'MADIFOR') {
         parsed.gatewayConfig.senderId = 'KPANDO ANG';
+      }
+      if (
+        parsed?.currentUser &&
+        !AUTHORIZED_EMAILS.includes(String(parsed.currentUser.email || '').toLowerCase())
+      ) {
+        parsed.currentUser = null;
       }
       return parsed;
     }
@@ -82,7 +91,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => saved?.currentUser || null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeClass, setActiveClass] = useState('Basic 9');
-  const [activeMock, setActiveMock] = useState('Mock 2');
+  const [activeMock, setActiveMock] = useState('Mock 1');
   const [sortMode, setSortMode] = useState('aggregate'); // 'aggregate' | 'total'
 
   const [schoolProfile, setSchoolProfile] = useState(() => saved?.schoolProfile || INITIAL_SCHOOL_PROFILE);
@@ -259,14 +268,14 @@ export default function App() {
     setInquiries((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
   };
 
-  const handleResetDemoData = () => {
+  const handleClearAllData = () => {
     setSchoolProfile(INITIAL_SCHOOL_PROFILE);
     setStudentsByClass(INITIAL_STUDENTS);
     setMockScores(INITIAL_MOCK_SCORES);
     setSmsLogs(INITIAL_SMS_LOGS);
     setInquiries(INITIAL_INQUIRIES);
     setBasic9Finance(INITIAL_BASIC9_FINANCE);
-    toast.success('Restored default Basic 9, 8 & 7 demo data!');
+    toast.success('All portal records cleared for a fresh start!');
   };
 
   // Dedicated Print Renderers (hidden on screen via no-print toggle, shown strictly during print)
@@ -530,7 +539,7 @@ export default function App() {
               <SchoolSettings
                 schoolProfile={schoolProfile}
                 onSaveProfile={setSchoolProfile}
-                onResetDemoData={handleResetDemoData}
+                onResetDemoData={handleClearAllData}
               />
             )}
           </main>

@@ -45,10 +45,10 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
           />
           <div>
             <h1 className="text-base font-black uppercase tracking-wide text-emerald-950">
-              {schoolProfile.name || 'KPANDO ANGLICAN BASIC SCHOOL'}
+              {schoolProfile.schoolName || schoolProfile.name || 'KPANDO ANGLICAN BASIC SCHOOL'}
             </h1>
             <p className="text-[10px] font-semibold text-slate-600">
-              {schoolProfile.motto || 'Discipline, Excellence & Service'} • {schoolProfile.location || 'Kpando, Volta Region'}
+              {schoolProfile.motto || 'Discipline, Excellence & Service'} • {schoolProfile.district || schoolProfile.address || 'Kpando, Volta Region'}
             </p>
             <p className="text-[10px] text-slate-500">
               Tel: {schoolProfile.phone || '0246951331'}
@@ -614,7 +614,9 @@ export default function Basic9Expenditure({
                 {filteredRows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-10 text-center text-slate-500 dark:text-slate-400">
-                      No Basic 9 learners match your filter.
+                      {summary.learnerRows.length === 0
+                        ? 'No Basic 9 learners enrolled yet. Add learners in the Students & Parents tab first.'
+                        : 'No Basic 9 learners match your filter.'}
                     </td>
                   </tr>
                 ) : (
