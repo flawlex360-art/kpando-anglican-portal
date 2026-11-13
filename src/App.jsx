@@ -31,14 +31,24 @@ import { isFirebaseConfigured, loadPortalFromFirestore, savePortalToFirestore } 
 
 const STORAGE_KEY = 'kpando_anglican_basic_school_v1';
 
+function normalizeSchoolProfile(profile) {
+  if (!profile) return profile;
+  if (profile.schoolName === 'Madifor Model Basic & JHS') {
+    return INITIAL_SCHOOL_PROFILE;
+  }
+  if (profile.phone === '024 812 4590 / 050 331 9802') {
+    return { ...profile, phone: INITIAL_SCHOOL_PROFILE.phone };
+  }
+  return profile;
+}
+
 function loadInitialState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Upgrade any pre-rebrand cached identity automatically
-      if (parsed?.schoolProfile?.schoolName === 'Madifor Model Basic & JHS') {
-        parsed.schoolProfile = INITIAL_SCHOOL_PROFILE;
+      if (parsed?.schoolProfile) {
+        parsed.schoolProfile = normalizeSchoolProfile(parsed.schoolProfile);
       }
       if (parsed?.gatewayConfig?.senderId === 'MADIFOR') {
         parsed.gatewayConfig.senderId = 'KPANDO ANG';
@@ -96,7 +106,7 @@ export default function App() {
     loadPortalFromFirestore()
       .then((cloudData) => {
         if (!cloudData) return;
-        if (cloudData.schoolProfile) setSchoolProfile(cloudData.schoolProfile);
+        if (cloudData.schoolProfile) setSchoolProfile(normalizeSchoolProfile(cloudData.schoolProfile));
         if (cloudData.studentsByClass) setStudentsByClass(cloudData.studentsByClass);
         if (cloudData.mockScores) setMockScores(cloudData.mockScores);
         if (cloudData.smsLogs) setSmsLogs(cloudData.smsLogs);

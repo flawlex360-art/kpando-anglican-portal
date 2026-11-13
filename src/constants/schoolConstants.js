@@ -63,7 +63,7 @@ export const INITIAL_SCHOOL_PROFILE = {
   district: "Kpando Municipal Education Directorate",
   region: "Volta Region, Ghana",
   address: "P.O. Box 142, Kpando — Volta Region",
-  phone: "024 812 4590 / 050 331 9802",
+  phone: "0246951331",
   email: "info@kpandoanglican.edu.gh",
   academicYear: "2025/2026",
   headmasterName: "Mr. Emmanuel K. Adjei",

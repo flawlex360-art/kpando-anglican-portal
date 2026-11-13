@@ -112,7 +112,12 @@ export default function PublicWebsite({
             </span>
           </div>
           <div className="flex items-center gap-4 text-emerald-200">
-            <span className="hidden sm:inline">{schoolProfile.phone}</span>
+            <a
+              href={`tel:${(schoolProfile.phone || '').replace(/\s+/g, '')}`}
+              className="hidden sm:inline hover:text-white transition-colors"
+            >
+              {schoolProfile.phone}
+            </a>
             <button
               onClick={onOpenLogin}
               className="underline hover:text-white font-semibold"
@@ -503,7 +508,7 @@ export default function PublicWebsite({
                   required
                   value={inquiryForm.phone}
                   onChange={(e) => setInquiryForm({ ...inquiryForm, phone: e.target.value })}
-                  placeholder="e.g. 024 123 4567"
+                  placeholder="Enter parent WhatsApp / SMS number"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-emerald-600 outline-none"
                 />
               </div>
@@ -569,7 +574,12 @@ export default function PublicWebsite({
                   <Phone className="w-4 h-4 text-amber-300 shrink-0 mt-1" />
                   <div>
                     <div className="font-bold">Telephone</div>
-                    <div className="text-xs text-emerald-100/80">{schoolProfile.phone}</div>
+                    <a
+                      href={`tel:${(schoolProfile.phone || '').replace(/\s+/g, '')}`}
+                      className="text-xs text-emerald-100/80 hover:text-white underline underline-offset-2"
+                    >
+                      {schoolProfile.phone}
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
