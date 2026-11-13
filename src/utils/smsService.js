@@ -51,7 +51,8 @@ export async function dispatchParentSmsBatch({
 }) {
   const provider = gatewayConfig?.provider || 'simulation';
   const apiKey = (gatewayConfig?.apiKey || '').trim();
-  const senderId = (gatewayConfig?.senderId || 'KPANDO ANG').slice(0, 11);
+  const dispatchSecret = (gatewayConfig?.dispatchSecret || '').trim();
+  const senderId = (gatewayConfig?.senderId || 'KpandoAng').trim().slice(0, 11);
 
   const dispatches = recipients.map((rec) => {
     const formattedPhone = formatGhanaPhone(rec.parentPhone);
@@ -80,17 +81,81 @@ export async function dispatchParentSmsBatch({
     };
   });
 
-  // Live gateway path when provider != simulation and API key is supplied
-  if (provider !== 'simulation' && apiKey) {
-    let deliveredCount = 0;
-    const failures = [];
+  // Live gateway path when provider != simulation
+  if (provider !== 'simulation') {
+    if (!apiKey && !dispatchSecret) {
+      throw new Error(`Enter your ${provider.toUpperCase()} API key in Configure Gateway before sending live SMS.`);
+    }
 
-    for (const item of dispatches) {
-      if (!item.phone) {
-        failures.push({ ...item, reason: 'Missing phone number' });
-        continue;
+    const validDispatches = dispatches.filter((d) => d.phone && d.phone.length >= 10);
+    const invalidDispatches = dispatches.filter((d) => !d.phone || d.phone.length < 10);
+    const failures = invalidDispatches.map((d) => ({
+      ...d,
+      reason: 'Missing or invalid Ghanaian phone number'
+    }));
+
+    if (validDispatches.length === 0) {
+      return {
+        mode: provider,
+        total: dispatches.length,
+        deliveredCount: 0,
+        failedCount: failures.length,
+        failures,
+        dispatches
+      };
+    }
+
+    // Use Vercel /api/send-sms proxy first for Arkesel & mNotify to avoid browser CORS blocks
+    if (provider === 'arkesel' || provider === 'mnotify') {
+      try {
+        const proxyRes = await fetch('/api/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider,
+            senderId,
+            apiKey,
+            dispatchSecret,
+            messages: validDispatches.map((d) => ({
+              phone: d.phone,
+              message: d.message
+            }))
+          })
+        });
+
+        // If running on plain Vite dev server without serverless /api/send-sms, fall back to direct fetch
+        if (proxyRes.status !== 404 && proxyRes.status !== 405) {
+          let proxyData = {};
+          try {
+            proxyData = await proxyRes.json();
+          } catch {
+            proxyData = {};
+          }
+          if (!proxyRes.ok) {
+            throw new Error(proxyData.error || `Gateway proxy error (HTTP ${proxyRes.status})`);
+          }
+
+          const proxyFailures = Array.isArray(proxyData.failures) ? proxyData.failures : [];
+          return {
+            mode: provider,
+            total: dispatches.length,
+            deliveredCount: proxyData.deliveredCount || 0,
+            failedCount: failures.length + proxyFailures.length,
+            failures: [...failures, ...proxyFailures],
+            dispatches
+          };
+        }
+      } catch (err) {
+        // Re-throw real API/validation errors; only continue fallback on local 404 or missing proxy
+        if (!String(err?.message || '').includes('Failed to fetch')) {
+          throw err;
+        }
       }
+    }
 
+    let deliveredCount = 0;
+
+    for (const item of validDispatches) {
       try {
         if (provider === 'mnotify') {
           const res = await fetch(`https://api.mnotify.com/api/sms/quick?key=${encodeURIComponent(apiKey)}`, {
@@ -119,7 +184,15 @@ export async function dispatchParentSmsBatch({
               recipients: [item.phone]
             })
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          let data = {};
+          try {
+            data = await res.json();
+          } catch {
+            data = {};
+          }
+          if (!res.ok || (data.status && data.status !== 'success')) {
+            throw new Error(data.message || `HTTP ${res.status}`);
+          }
           deliveredCount++;
         } else if (provider === 'hubtel') {
           const res = await fetch(

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  MessageSquare, Send, CheckSquare, Square, Settings2, History, Users, Eye, Sparkles, CheckCircle2
+  MessageSquare, Send, CheckSquare, Square, Settings2, History, Users, Eye, EyeOff, Sparkles, CheckCircle2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SMS_TEMPLATES } from '../constants/schoolConstants';
@@ -21,6 +21,7 @@ export default function SmsCenter({
   const [selectedSns, setSelectedSns] = useState(() => rankedResults.map((r) => r.sn));
   const [previewSn, setPreviewSn] = useState(rankedResults[0]?.sn || null);
   const [showGatewayPanel, setShowGatewayPanel] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
   // Keep selections synced if class changes
@@ -104,9 +105,10 @@ export default function SmsCenter({
       });
 
       if (result.failedCount > 0) {
-        toast.success(
-          `Dispatched ${result.deliveredCount}/${result.total} SMS via ${result.mode} (${result.failedCount} skipped/failed).`
-        );
+        const firstReason = result.failures?.[0]?.reason;
+        const msg = `Dispatched ${result.deliveredCount}/${result.total} SMS via ${result.mode} (${result.failedCount} failed${firstReason ? `: ${firstReason}` : ''}).`;
+        if (result.deliveredCount === 0) toast.error(msg);
+        else toast.success(msg);
       } else {
         toast.success(
           `Successfully sent ${result.deliveredCount} personalized SMS via ${result.mode}!`
@@ -183,13 +185,26 @@ export default function SmsCenter({
               <label className="block text-xs font-bold mb-1">
                 {gatewayConfig.provider === 'hubtel' ? 'Client ID' : 'API Key'}
               </label>
-              <input
-                type="password"
-                value={gatewayConfig.apiKey}
-                onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, apiKey: e.target.value })}
-                placeholder={gatewayConfig.provider === 'simulation' ? 'Not needed in Simulation' : 'Paste live API key...'}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
-              />
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={gatewayConfig.apiKey}
+                  onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, apiKey: e.target.value })}
+                  placeholder={gatewayConfig.provider === 'simulation' ? 'Not needed in Simulation' : 'Paste live API key...'}
+                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+                  title={showApiKey ? 'Hide API key' : 'Show API key'}
+                >
+                  {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Saved privately in your browser and routed via <code className="font-mono">/api/send-sms</code> on Vercel (never committed to GitHub).
+              </p>
             </div>
           </div>
         </div>
