@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import {
   Wallet, Search, FileSpreadsheet, Printer, Plus, Trash2,
-  CheckCircle2, RotateCcw, Edit3, Save, Coins, TrendingUp, AlertCircle
+  CheckCircle2, RotateCcw, Edit3, Save, Coins, TrendingUp, AlertCircle,
+  Receipt, LayoutGrid
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -11,6 +12,7 @@ import {
   computeBasic9FinanceSummary
 } from '../utils/calculations';
 import { exportBasic9ExpenditureExcel } from '../utils/excelExport';
+import Basic9ReceiptModal from './Basic9Receipts';
 
 const STATUS_BADGE_STYLES = {
   Cleared: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/50',
@@ -221,7 +223,9 @@ export default function Basic9Expenditure({
   onSaveFinance,
   schoolProfile = {},
   currentUser,
-  onPrintExpenditure
+  onPrintExpenditure,
+  onPrintReceipt,
+  onPrintGeneralReceipts
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -229,6 +233,7 @@ export default function Basic9Expenditure({
   const [editingTotalKey, setEditingTotalKey] = useState(null);
   const [editingTotalValue, setEditingTotalValue] = useState('');
   const [editingFee, setEditingFee] = useState(false);
+  const [receiptModal, setReceiptModal] = useState({ open: false, mode: 'amount', financeKey: null });
   const [feeInput, setFeeInput] = useState(() =>
     String(
       financeData?.feePerLearner !== undefined
@@ -267,6 +272,7 @@ export default function Basic9Expenditure({
         feePerLearner: BASIC9_DEFAULT_FEE,
         paymentsByLearner: {},
         expenses: [],
+        paymentHistory: [],
         ...prev
       };
       return updater(base);
@@ -283,14 +289,34 @@ export default function Basic9Expenditure({
 
     const added = Math.round(parsed * 100) / 100;
     const newTotal = Math.round((row.amountPaid + added) * 100) / 100;
+    const newLeft = Math.max(0, Math.round((row.targetFee - newTotal) * 100) / 100);
+    const today = new Date().toISOString().slice(0, 10);
 
-    updateFinance((base) => ({
-      ...base,
-      paymentsByLearner: {
-        ...base.paymentsByLearner,
-        [row.financeKey]: newTotal
-      }
-    }));
+    updateFinance((base) => {
+      const existingHistory = Array.isArray(base.paymentHistory) ? base.paymentHistory : [];
+      const nextNum = existingHistory.length + 1;
+      const receiptEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        receiptNo: `KABS-B9-${String(nextNum).padStart(4, '0')}`,
+        financeKey: row.financeKey,
+        studentName: row.name,
+        indexNo: row.indexNo,
+        date: today,
+        amountPaidNow: added,
+        totalPaidAfter: newTotal,
+        amountLeftAfter: newLeft,
+        recordedBy: currentUser?.name || currentUser?.email || 'Basic 9 Teacher'
+      };
+
+      return {
+        ...base,
+        paymentsByLearner: {
+          ...base.paymentsByLearner,
+          [row.financeKey]: newTotal
+        },
+        paymentHistory: [receiptEntry, ...existingHistory].slice(0, 300)
+      };
+    });
 
     setPaymentAddDrafts((prev) => {
       const next = { ...prev };
@@ -513,6 +539,22 @@ export default function Basic9Expenditure({
               </button>
             </form>
           )}
+
+          <button
+            type="button"
+            onClick={() => setReceiptModal({ open: true, mode: 'amount', financeKey: null })}
+            className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+          >
+            <Receipt className="w-4 h-4" /> Amount Receipt
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setReceiptModal({ open: true, mode: 'general', financeKey: null })}
+            className="px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+          >
+            <LayoutGrid className="w-4 h-4" /> General Receipts (6/Page)
+          </button>
 
           <button
             type="button"
@@ -778,6 +820,14 @@ export default function Basic9Expenditure({
                         </td>
                         <td className="text-center px-2 py-2">
                           <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setReceiptModal({ open: true, mode: 'amount', financeKey: row.financeKey })}
+                              className="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-800/70 text-amber-800 dark:text-amber-200 text-[10px] font-bold flex items-center gap-0.5"
+                              title={`Create receipt for ${row.name}`}
+                            >
+                              <Receipt className="w-3 h-3" /> Receipt
+                            </button>
                             {row.amountPaid < row.targetFee && (
                               <button
                                 type="button"
@@ -1009,6 +1059,25 @@ export default function Basic9Expenditure({
           </div>
         </div>
       </div>
+
+      <Basic9ReceiptModal
+        isOpen={receiptModal.open}
+        initialMode={receiptModal.mode}
+        initialFinanceKey={receiptModal.financeKey}
+        summary={summary}
+        paymentHistory={financeData?.paymentHistory || []}
+        schoolProfile={schoolProfile}
+        currentUser={currentUser}
+        onClose={() => setReceiptModal((prev) => ({ ...prev, open: false }))}
+        onPrintSingleReceipt={(receipt) => {
+          setReceiptModal((prev) => ({ ...prev, open: false }));
+          onPrintReceipt && onPrintReceipt(receipt);
+        }}
+        onPrintGeneralReceipts={(options) => {
+          setReceiptModal((prev) => ({ ...prev, open: false }));
+          onPrintGeneralReceipts && onPrintGeneralReceipts(options);
+        }}
+      />
     </div>
   );
 }

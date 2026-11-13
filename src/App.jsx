@@ -27,6 +27,7 @@ import MockAnalysisBroadsheet, { PrintableA4Broadsheet } from './components/Mock
 import ReportCardManager from './components/ReportCardManager';
 import MockReportCard from './components/MockReportCard';
 import Basic9Expenditure, { PrintableBasic9Expenditure } from './components/Basic9Expenditure';
+import { PrintableAmountPaidReceipt, PrintableGeneralReceipts } from './components/Basic9Receipts';
 import SmsCenter from './components/SmsCenter';
 import SchoolSettings from './components/SchoolSettings';
 import { isFirebaseConfigured, loadPortalFromFirestore, savePortalToFirestore } from './utils/firebase';
@@ -330,6 +331,22 @@ export default function App() {
             schoolProfile={schoolProfile}
           />
         )}
+
+        {printJob.type === 'b9-receipt' && (
+          <PrintableAmountPaidReceipt
+            receipt={printJob.receipt}
+            schoolProfile={schoolProfile}
+          />
+        )}
+
+        {printJob.type === 'b9-general-receipts' && (
+          <PrintableGeneralReceipts
+            students={studentsByClass['Basic 9'] || []}
+            financeData={basic9Finance}
+            schoolProfile={schoolProfile}
+            options={printJob.options}
+          />
+        )}
       </div>
     );
   }
@@ -533,6 +550,8 @@ export default function App() {
                 schoolProfile={schoolProfile}
                 currentUser={currentUser}
                 onPrintExpenditure={() => setPrintJob({ type: 'expenditure' })}
+                onPrintReceipt={(receipt) => setPrintJob({ type: 'b9-receipt', receipt })}
+                onPrintGeneralReceipts={(options) => setPrintJob({ type: 'b9-general-receipts', options })}
               />
             )}
             {activeTab === 'settings' && (
