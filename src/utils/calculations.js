@@ -289,3 +289,91 @@ export function computeBasic9FinanceSummary(students = [], financeData = {}) {
     unpaidCount: learnerRows.filter((r) => r.status === 'Unpaid').length
   };
 }
+
+/**
+ * Normalizes YYYY-MM-DD, DD/MM/YYYY, or DD-MM-YYYY date strings to valid ISO YYYY-MM-DD.
+ */
+export function normalizeDobIso(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  let year;
+  let month;
+  let day;
+
+  const isoMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const dmyMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10);
+    day = parseInt(isoMatch[3], 10);
+  } else if (dmyMatch) {
+    day = parseInt(dmyMatch[1], 10);
+    month = parseInt(dmyMatch[2], 10);
+    year = parseInt(dmyMatch[3], 10);
+  } else {
+    return '';
+  }
+
+  if (year < 1980 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return '';
+  }
+
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() + 1 !== month ||
+    probe.getUTCDate() !== day
+  ) {
+    return '';
+  }
+
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * Calculates age in completed years from an ISO/DMY Date of Birth string.
+ */
+export function calculateAgeFromDob(dobStr, referenceDate = new Date()) {
+  const iso = normalizeDobIso(dobStr);
+  if (!iso) return null;
+
+  const [y, m, d] = iso.split('-').map(Number);
+  const refY = referenceDate.getFullYear();
+  const refM = referenceDate.getMonth() + 1;
+  const refD = referenceDate.getDate();
+
+  let age = refY - y;
+  if (refM < m || (refM === m && refD < d)) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+}
+
+/**
+ * Formats an ISO Date of Birth cleanly (e.g. '14 May 2011') without local timezone drift.
+ */
+export function formatDobDisplay(dobStr) {
+  const iso = normalizeDobIso(dobStr);
+  if (!iso) return '-';
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC'
+  });
+}
+
+/**
+ * Returns learner age from DOB when valid, falling back to a manually entered numeric age.
+ */
+export function resolveLearnerAge(student, referenceDate = new Date()) {
+  const fromDob = calculateAgeFromDob(student?.dob, referenceDate);
+  if (fromDob !== null) return fromDob;
+
+  const manual = parseInt(String(student?.age ?? '').trim(), 10);
+  return Number.isFinite(manual) && manual > 0 && manual <= 99 ? manual : null;
+}
