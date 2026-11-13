@@ -243,8 +243,9 @@ export default function PublicWebsite({
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-white drop-shadow-lg">
                   Shaping Confident Scholars &amp; BECE Distinction Leaders
                 </h1>
-                <p className="text-xs sm:text-sm text-emerald-50/95 max-w-xl drop-shadow">
-                  Welcome to <strong>{schoolProfile.schoolName}</strong> — Basic 7–9 instruction, 100% BECE Mock diagnostics, and instant parent SMS alerts.
+                <p className="text-xs sm:text-sm text-emerald-50/95 max-w-2xl leading-relaxed drop-shadow">
+                  Welcome to <strong>{schoolProfile.schoolName}</strong>. We combine disciplined classroom instruction,
+                  continuous Basic 9 BECE Mock Examination diagnostics, and instant parent SMS engagement to help every learner thrive.
                 </p>
                 <div className="flex flex-wrap gap-2.5 pt-1">
                   <a
