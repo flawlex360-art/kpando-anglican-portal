@@ -25,6 +25,45 @@ export function formatSmsName(name) {
     .replace(/(^|[\s\-/.(]|'(?!s(?:\s|$)))([a-z])/g, (_, sep, ch) => `${sep}${ch.toUpperCase()}`);
 }
 
+/**
+ * Formats currency using ASCII "GHS" so Ghanaian SMS gateways stay in GSM-7
+ * encoding (160 chars/page) instead of triggering Unicode 70-char limits.
+ */
+export function formatSmsCurrency(amount) {
+  const num = Math.max(0, Math.round((Number(amount) || 0) * 100) / 100);
+  return `GHS ${num.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export function isLearnerOwing(row) {
+  return Math.round((Number(row?.amountLeft) || 0) * 100) > 0;
+}
+
+export function filterOwingRecipients(rows = []) {
+  return (Array.isArray(rows) ? rows : []).filter((row) => isLearnerOwing(row));
+}
+
+export function buildFeePaymentSms({
+  parentName,
+  studentName,
+  amountPaidNow,
+  totalPaidAfter,
+  amountLeftAfter,
+  schoolName
+}) {
+  const parentDisplay = formatSmsName(parentName) || 'Parent/Guardian';
+  const studentDisplay = formatSmsName(studentName) || 'your ward';
+  const schoolDisplay = String(schoolName || 'Kpando Anglican Basic School').trim();
+  const paidNowText = formatSmsCurrency(amountPaidNow);
+  const totalPaidText = formatSmsCurrency(totalPaidAfter);
+  const cleanLeft = Math.max(0, Math.round((Number(amountLeftAfter) || 0) * 100) / 100);
+  const leftText = formatSmsCurrency(cleanLeft);
+
+  if (cleanLeft <= 0) {
+    return `Dear ${parentDisplay}, payment of ${paidNowText} has been received for ${studentDisplay}'s Basic 9 fees (Total paid: ${totalPaidText}). Amount left to pay: GHS 0.00 (Cleared). Thank you. - ${schoolDisplay}`;
+  }
+  return `Dear ${parentDisplay}, payment of ${paidNowText} has been received for ${studentDisplay}'s Basic 9 fees (Total paid: ${totalPaidText}). Amount left to pay: ${leftText}. Thank you. - ${schoolDisplay}`;
+}
+
 export function interpolateSmsTemplate(template, context) {
   if (!template) return '';
   const parentDisplay = formatSmsName(context.parentName) || 'Parent/Guardian';
@@ -38,6 +77,10 @@ export function interpolateSmsTemplate(template, context) {
     '{total_score}': context.totalScore !== undefined ? String(context.totalScore) : '-',
     '{position}': context.position || '-',
     '{mock_series}': context.mockSeries || 'Mock 1',
+    '{amount_paid}': context.amountPaid !== undefined ? formatSmsCurrency(context.amountPaid) : 'GHS 0.00',
+    '{amount_left}': context.amountLeft !== undefined ? formatSmsCurrency(context.amountLeft) : 'GHS 0.00',
+    '{total_fee}': context.targetFee !== undefined ? formatSmsCurrency(context.targetFee) : 'GHS 0.00',
+    '{amount_paid_now}': context.amountPaidNow !== undefined ? formatSmsCurrency(context.amountPaidNow) : 'GHS 0.00',
     '{pta_date}': context.ptaDate || 'TBA',
     '{pta_time}': context.ptaTime || '9:00 AM',
     '{pta_venue}': context.ptaVenue || 'School Assembly Hall',
@@ -96,6 +139,10 @@ export async function dispatchParentSmsBatch({
       totalScore: rec.overallTotal,
       position: rec.overallRank,
       mockSeries,
+      amountPaid: rec.amountPaid,
+      amountLeft: rec.amountLeft,
+      targetFee: rec.targetFee,
+      amountPaidNow: rec.amountPaidNow,
       ptaDate: schoolProfile?.ptaMeeting?.date,
       ptaTime: schoolProfile?.ptaMeeting?.time,
       ptaVenue: schoolProfile?.ptaMeeting?.venue,
@@ -251,5 +298,109 @@ export async function dispatchParentSmsBatch({
     failedCount: invalidDispatches.length,
     failures: invalidDispatches.map(d => ({ ...d, reason: 'Invalid or missing phone number' })),
     dispatches
+  };
+}
+
+/**
+ * Automatically generates and dispatches an SMS payment confirmation to a parent
+ * whenever a fee amount is recorded, informing them of the amount paid and balance left.
+ */
+export async function sendFeePaymentSms({
+  student,
+  amountPaidNow,
+  totalPaidAfter,
+  amountLeftAfter,
+  schoolProfile,
+  gatewayConfig
+}) {
+  const parentDisplay = formatSmsName(student?.parentName) || 'Parent/Guardian';
+  const studentDisplay = formatSmsName(student?.name) || 'your ward';
+  const generatedMessage = buildFeePaymentSms({
+    parentName: student?.parentName,
+    studentName: student?.name,
+    amountPaidNow,
+    totalPaidAfter,
+    amountLeftAfter,
+    schoolName: schoolProfile?.schoolName
+  });
+  const formattedPhone = formatGhanaPhone(student?.parentPhone);
+
+  try {
+    const result = await dispatchParentSmsBatch({
+      recipients: [student],
+      messageTemplate: generatedMessage,
+      schoolProfile,
+      className: 'Basic 9',
+      gatewayConfig
+    });
+
+    const firstFailure = result.failures?.[0]?.reason;
+    return {
+      sent: result.deliveredCount > 0,
+      mode: result.mode,
+      deliveredCount: result.deliveredCount,
+      failedCount: result.failedCount,
+      phone: formattedPhone,
+      rawPhone: student?.parentPhone || '',
+      parentDisplay,
+      studentDisplay,
+      message: generatedMessage,
+      error: firstFailure || ''
+    };
+  } catch (err) {
+    return {
+      sent: false,
+      mode: gatewayConfig?.provider || 'simulation',
+      deliveredCount: 0,
+      failedCount: 1,
+      phone: formattedPhone,
+      rawPhone: student?.parentPhone || '',
+      parentDisplay,
+      studentDisplay,
+      message: generatedMessage,
+      error: err?.message || 'Unable to reach SMS gateway'
+    };
+  }
+}
+
+/**
+ * Dispatches balance reminders ONLY to parents who are still owing (amountLeft > 0),
+ * strictly skipping any parent who has already cleared their fees.
+ */
+export async function dispatchOwingFeeReminders({
+  rows = [],
+  messageTemplate,
+  schoolProfile,
+  gatewayConfig
+}) {
+  const owingRows = filterOwingRecipients(rows);
+  const skippedClearedCount = Math.max(0, (Array.isArray(rows) ? rows.length : 0) - owingRows.length);
+
+  if (owingRows.length === 0) {
+    return {
+      mode: gatewayConfig?.provider === 'simulation' ? 'Simulation Mode' : (gatewayConfig?.provider || 'Simulation Mode'),
+      total: 0,
+      deliveredCount: 0,
+      failedCount: 0,
+      failures: [],
+      dispatches: [],
+      skippedClearedCount
+    };
+  }
+
+  const defaultBody =
+    'Dear {parent_name}, kindly settle {student_name}\'s Basic 9 fee balance. Amount left to pay: {amount_left} (Paid: {amount_paid} of {total_fee}). Thank you. - {school_name}';
+
+  const result = await dispatchParentSmsBatch({
+    recipients: owingRows,
+    messageTemplate: (messageTemplate || '').trim() || defaultBody,
+    schoolProfile,
+    className: 'Basic 9',
+    gatewayConfig
+  });
+
+  return {
+    ...result,
+    skippedClearedCount
   };
 }

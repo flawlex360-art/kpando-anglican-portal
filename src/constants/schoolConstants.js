@@ -100,8 +100,9 @@ export const SMS_TEMPLATES = [
   },
   {
     id: "fees_reminder",
-    label: "Mock Printing & Exam Levy Reminder",
-    body: "Dear {parent_name}, kindly assist by settling {student_name}'s Basic 9 Mock Examination printing & stationery levy before Friday to ensure smooth preparation for Mock 3. Thank you. - {school_name}"
+    label: "Owing Fee Balance Reminder (Owing Only)",
+    owingOnly: true,
+    body: "Dear {parent_name}, kindly settle {student_name}'s Basic 9 fee balance. Amount left to pay: {amount_left} (Paid: {amount_paid} of {total_fee}). Thank you. - {school_name}"
   }
 ];
 

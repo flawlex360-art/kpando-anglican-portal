@@ -4,12 +4,20 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SMS_TEMPLATES } from '../constants/schoolConstants';
-import { checkSmsServerStatus, dispatchParentSmsBatch, interpolateSmsTemplate } from '../utils/smsService';
+import { computeBasic9FinanceSummary, formatCurrencyGhc, getLearnerFinanceKey } from '../utils/calculations';
+import {
+  checkSmsServerStatus,
+  dispatchParentSmsBatch,
+  filterOwingRecipients,
+  interpolateSmsTemplate,
+  isLearnerOwing
+} from '../utils/smsService';
 
 export default function SmsCenter({
   activeClass,
   activeMock,
   rankedResults,
+  basic9Finance,
   schoolProfile,
   gatewayConfig,
   onSaveGatewayConfig,
@@ -36,34 +44,97 @@ export default function SmsCenter({
     };
   }, []);
 
-  // Keep selections synced if class changes
+  // Enrich Basic 9 recipients with fee payment & balance data
+  const enrichedRecipients = useMemo(() => {
+    if (activeClass !== 'Basic 9') return rankedResults;
+    const summary = computeBasic9FinanceSummary(rankedResults, basic9Finance);
+    const byKey = new Map(summary.learnerRows.map((row) => [row.financeKey, row]));
+    return rankedResults.map((r) => {
+      const fin = byKey.get(getLearnerFinanceKey(r));
+      return fin
+        ? {
+            ...r,
+            amountPaid: fin.amountPaid,
+            amountLeft: fin.amountLeft,
+            targetFee: fin.targetFee,
+            financeStatus: fin.status
+          }
+        : r;
+    });
+  }, [activeClass, rankedResults, basic9Finance]);
+
+  const isOwingReminderMode = useMemo(() => {
+    const activeTpl = SMS_TEMPLATES.find((t) => t.id === selectedTemplateId);
+    return Boolean(activeTpl?.owingOnly) || messageBody.includes('{amount_left}');
+  }, [selectedTemplateId, messageBody]);
+
+  // Keep selections synced if class or template owing filter changes
   React.useEffect(() => {
-    setSelectedSns(rankedResults.map((r) => r.sn));
-    setPreviewSn(rankedResults[0]?.sn || null);
-  }, [activeClass, rankedResults.length]);
+    if (isOwingReminderMode && activeClass === 'Basic 9') {
+      const owingOnly = filterOwingRecipients(enrichedRecipients);
+      setSelectedSns(owingOnly.map((r) => r.sn));
+      setPreviewSn(owingOnly[0]?.sn || null);
+    } else {
+      setSelectedSns(enrichedRecipients.map((r) => r.sn));
+      setPreviewSn(enrichedRecipients[0]?.sn || null);
+    }
+  }, [activeClass, enrichedRecipients.length, isOwingReminderMode]);
 
   const handleSelectTemplate = (tpl) => {
     setSelectedTemplateId(tpl.id);
     setMessageBody(tpl.body);
+    if (tpl.owingOnly && activeClass === 'Basic 9') {
+      const owingOnly = filterOwingRecipients(enrichedRecipients);
+      setSelectedSns(owingOnly.map((r) => r.sn));
+      if (owingOnly[0]) setPreviewSn(owingOnly[0].sn);
+    }
   };
 
   const selectGroup = (group) => {
-    if (group === 'all') setSelectedSns(rankedResults.map((r) => r.sn));
-    else if (group === 'none') setSelectedSns([]);
-    else if (group === 'atRisk') setSelectedSns(rankedResults.filter((r) => r.aggregate > 30).map((r) => r.sn));
-    else if (group === 'top') setSelectedSns(rankedResults.filter((r) => r.aggregate <= 15).map((r) => r.sn));
+    if (group === 'none') {
+      setSelectedSns([]);
+      return;
+    }
+    if (group === 'owing') {
+      const owingOnly = filterOwingRecipients(enrichedRecipients);
+      setSelectedSns(owingOnly.map((r) => r.sn));
+      if (owingOnly[0]) setPreviewSn(owingOnly[0].sn);
+      return;
+    }
+
+    const baseList =
+      isOwingReminderMode && activeClass === 'Basic 9'
+        ? filterOwingRecipients(enrichedRecipients)
+        : enrichedRecipients;
+
+    if (group === 'all') setSelectedSns(baseList.map((r) => r.sn));
+    else if (group === 'atRisk') setSelectedSns(baseList.filter((r) => r.aggregate > 30).map((r) => r.sn));
+    else if (group === 'top') setSelectedSns(baseList.filter((r) => r.aggregate <= 15).map((r) => r.sn));
   };
 
   const toggleRecipient = (sn) => {
+    if (isOwingReminderMode && activeClass === 'Basic 9') {
+      const target = enrichedRecipients.find((r) => r.sn === sn);
+      if (target && !isLearnerOwing(target)) {
+        toast('This parent has cleared all bills and will not receive a fee reminder.');
+        return;
+      }
+    }
     setSelectedSns((prev) =>
       prev.includes(sn) ? prev.filter((item) => item !== sn) : [...prev, sn]
     );
   };
 
-  const previewStudent = useMemo(
-    () => rankedResults.find((r) => r.sn === previewSn) || rankedResults[0],
-    [rankedResults, previewSn]
-  );
+  const previewStudent = useMemo(() => {
+    if (isOwingReminderMode && activeClass === 'Basic 9') {
+      return (
+        enrichedRecipients.find((r) => r.sn === previewSn && isLearnerOwing(r)) ||
+        filterOwingRecipients(enrichedRecipients)[0] ||
+        enrichedRecipients[0]
+      );
+    }
+    return enrichedRecipients.find((r) => r.sn === previewSn) || enrichedRecipients[0];
+  }, [enrichedRecipients, previewSn, isOwingReminderMode, activeClass]);
 
   const previewText = useMemo(() => {
     if (!previewStudent) return messageBody;
@@ -76,6 +147,9 @@ export default function SmsCenter({
       totalScore: previewStudent.overallTotal,
       position: previewStudent.overallRank,
       mockSeries: activeMock,
+      amountPaid: previewStudent.amountPaid,
+      amountLeft: previewStudent.amountLeft,
+      targetFee: previewStudent.targetFee,
       ptaDate: schoolProfile?.ptaMeeting?.date,
       ptaTime: schoolProfile?.ptaMeeting?.time,
       ptaVenue: schoolProfile?.ptaMeeting?.venue,
@@ -84,9 +158,21 @@ export default function SmsCenter({
   }, [messageBody, previewStudent, activeClass, activeMock, schoolProfile]);
 
   const handleSendSms = async () => {
-    const recipients = rankedResults.filter((r) => selectedSns.includes(r.sn));
+    let recipients = enrichedRecipients.filter((r) => selectedSns.includes(r.sn));
+    let skippedCleared = 0;
+
+    if (isOwingReminderMode && activeClass === 'Basic 9') {
+      const beforeCount = recipients.length;
+      recipients = filterOwingRecipients(recipients);
+      skippedCleared = beforeCount - recipients.length;
+    }
+
     if (recipients.length === 0) {
-      toast.error('Select at least one parent recipient.');
+      toast.error(
+        isOwingReminderMode && activeClass === 'Basic 9'
+          ? 'No owing parents selected — cleared parents are automatically excluded.'
+          : 'Select at least one parent recipient.'
+      );
       return;
     }
     if (!messageBody.trim()) {
@@ -123,7 +209,9 @@ export default function SmsCenter({
         else toast.success(msg);
       } else {
         toast.success(
-          `Successfully sent ${result.deliveredCount} personalized SMS via ${result.mode}!`
+          `Successfully sent ${result.deliveredCount} personalized SMS via ${result.mode}!${
+            skippedCleared > 0 ? ` (${skippedCleared} cleared excluded)` : ''
+          }`
         );
       }
     } catch (err) {
@@ -318,7 +406,8 @@ export default function SmsCenter({
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {[
                   '{parent_name}', '{student_name}', '{aggregate}', '{total_score}',
-                  '{position}', '{pta_date}', '{pta_time}', '{pta_venue}'
+                  '{position}', '{amount_left}', '{amount_paid}', '{total_fee}',
+                  '{pta_date}', '{pta_time}', '{pta_venue}'
                 ].map((token) => (
                   <button
                     key={token}
@@ -334,18 +423,24 @@ export default function SmsCenter({
 
             {/* Live Interpolated Preview */}
             <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 shrink-0">
                   <Eye className="w-3.5 h-3.5" /> Live SMS Preview
                 </span>
                 <select
                   value={previewSn || ''}
                   onChange={(e) => setPreviewSn(Number(e.target.value))}
-                  className="text-[11px] font-bold bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2 py-1 outline-none"
+                  className="text-[11px] font-bold bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2 py-1 outline-none max-w-[260px]"
                 >
-                  {rankedResults.map((r) => (
+                  {(isOwingReminderMode && activeClass === 'Basic 9'
+                    ? filterOwingRecipients(enrichedRecipients)
+                    : enrichedRecipients
+                  ).map((r) => (
                     <option key={r.sn} value={r.sn}>
                       {r.parentName} ({r.name})
+                      {activeClass === 'Basic 9' && r.amountLeft !== undefined
+                        ? ` — Left: ${formatCurrencyGhc(r.amountLeft)}`
+                        : ''}
                     </option>
                   ))}
                 </select>
@@ -371,29 +466,44 @@ export default function SmsCenter({
         {/* Right: Parent Recipients Selector */}
         <div className="lg:col-span-5 glass-card overflow-hidden flex flex-col max-h-[560px]">
           <div className="p-4 border-b border-slate-200 dark:border-zinc-800 space-y-2.5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-black flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-600" />
-                Recipients ({selectedSns.length}/{rankedResults.length})
+                Recipients ({selectedSns.length}/{enrichedRecipients.length})
               </h3>
-              <div className="flex gap-1 text-[11px] font-bold">
+              <div className="flex flex-wrap gap-1 text-[11px] font-bold">
                 <button onClick={() => selectGroup('all')} className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-emerald-100">All</button>
+                {activeClass === 'Basic 9' && (
+                  <button onClick={() => selectGroup('owing')} className="px-2 py-1 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 hover:bg-amber-200">
+                    Owing
+                  </button>
+                )}
                 <button onClick={() => selectGroup('top')} className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-emerald-100">Agg ≤ 15</button>
                 <button onClick={() => selectGroup('atRisk')} className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-rose-100">At-Risk</button>
                 <button onClick={() => selectGroup('none')} className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800">Clear</button>
               </div>
             </div>
+            {isOwingReminderMode && activeClass === 'Basic 9' && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg px-2.5 py-1.5 font-medium">
+                Owing reminder mode active: parents who have cleared their fees are excluded automatically.
+              </p>
+            )}
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-zinc-800 overflow-y-auto flex-1">
-            {rankedResults.map((r) => {
-              const checked = selectedSns.includes(r.sn);
+            {enrichedRecipients.map((r) => {
+              const owingBlocked = isOwingReminderMode && activeClass === 'Basic 9' && !isLearnerOwing(r);
+              const checked = !owingBlocked && selectedSns.includes(r.sn);
               return (
                 <div
                   key={r.sn}
                   onClick={() => toggleRecipient(r.sn)}
-                  className={`px-4 py-2.5 flex items-center justify-between gap-2 cursor-pointer text-xs transition-colors ${
-                    checked ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : 'hover:bg-slate-50 dark:hover:bg-zinc-900/40'
+                  className={`px-4 py-2.5 flex items-center justify-between gap-2 text-xs transition-colors ${
+                    owingBlocked
+                      ? 'opacity-50 cursor-not-allowed bg-slate-50/70 dark:bg-zinc-900/30'
+                      : checked
+                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20 cursor-pointer'
+                        : 'hover:bg-slate-50 dark:hover:bg-zinc-900/40 cursor-pointer'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -406,6 +516,11 @@ export default function SmsCenter({
                       <div className="font-bold truncate">{r.parentName || 'Parent'}</div>
                       <div className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
                         Ward: {r.name} • Agg {r.aggregate} ({r.overallRank})
+                        {activeClass === 'Basic 9' && r.amountLeft !== undefined && (
+                          <span className={isLearnerOwing(r) ? ' text-amber-700 dark:text-amber-400 font-semibold' : ' text-emerald-700 dark:text-emerald-400 font-semibold'}>
+                            {' '}• {isLearnerOwing(r) ? `Left: ${formatCurrencyGhc(r.amountLeft)}` : 'Cleared (Excluded)'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -1,38 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Settings, Save, RotateCcw, Plus, Trash2, Bell,
-  Cloud, CloudOff, RefreshCw, UploadCloud, Download, AlertTriangle
-} from 'lucide-react';
+import { Settings, Save, RotateCcw, Plus, Trash2, Bell } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-  getFirebaseConfig,
-  isFirebaseConfigured,
-  saveLocalFirebaseConfig,
-  PORTAL_DOC_COLLECTION,
-  PORTAL_DOC_ID
-} from '../utils/firebase';
 
-export default function SchoolSettings({
-  schoolProfile,
-  onSaveProfile,
-  onResetDemoData,
-  cloudSync,
-  onPushToFirebase,
-  onPullFromFirebase
-}) {
+export default function SchoolSettings({ schoolProfile, onSaveProfile, onResetDemoData }) {
   const [draft, setDraft] = useState(schoolProfile);
   const [newAnn, setNewAnn] = useState({ title: '', category: 'PTA Notice', summary: '' });
-  const [fbConfig, setFbConfig] = useState(() => getFirebaseConfig());
 
   useEffect(() => {
     setDraft(schoolProfile);
   }, [schoolProfile]);
-
-  const syncStatus = cloudSync?.status || (isFirebaseConfigured(fbConfig) ? 'syncing' : 'offline');
-  const isBusy = syncStatus === 'syncing';
-  const formattedLastSync = cloudSync?.lastSyncedAt
-    ? new Date(cloudSync.lastSyncedAt).toLocaleString()
-    : '';
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -325,142 +301,6 @@ export default function SchoolSettings({
               </div>
             ))
           )}
-        </div>
-      </div>
-
-      {/* Firebase Cloud Sync Configuration */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h3 className="text-sm font-black flex items-center gap-2">
-              {syncStatus === 'syncing' ? (
-                <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-              ) : syncStatus === 'connected' ? (
-                <Cloud className="w-4 h-4 text-emerald-600" />
-              ) : (
-                <CloudOff className="w-4 h-4 text-amber-600" />
-              )}
-              Firebase Firestore Cloud Sync
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Status:{' '}
-              <strong
-                className={
-                  syncStatus === 'connected'
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : syncStatus === 'syncing'
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-amber-600 dark:text-amber-400'
-                }
-              >
-                {syncStatus === 'connected'
-                  ? `Synced Across Devices${formattedLastSync ? ` (${formattedLastSync})` : ''}`
-                  : syncStatus === 'syncing'
-                    ? 'Syncing with Firebase Cloud...'
-                    : syncStatus === 'needs-setup'
-                      ? 'Firestore Database Not Enabled Yet in Firebase Console'
-                      : syncStatus === 'permission-error'
-                        ? 'Firestore Security Rules Blocked Access'
-                        : 'Offline / Local Browser Mode'}
-              </strong>
-            </p>
-            {cloudSync?.message && (
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400">{cloudSync.message}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {onPullFromFirebase && (
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={onPullFromFirebase}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50 text-xs font-bold flex items-center gap-1.5"
-              >
-                <Download className="w-3.5 h-3.5" /> Pull from Cloud
-              </button>
-            )}
-            {onPushToFirebase && (
-              <button
-                type="button"
-                disabled={isBusy}
-                onClick={onPushToFirebase}
-                className="px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 disabled:opacity-50 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5"
-              >
-                <UploadCloud className="w-3.5 h-3.5" /> Push This Device to Cloud
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                saveLocalFirebaseConfig(fbConfig);
-                toast.success('Firebase config saved! Reload the page to initialize cloud sync.');
-              }}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold"
-            >
-              Save Firebase Config
-            </button>
-          </div>
-        </div>
-
-        {(syncStatus === 'needs-setup' || syncStatus === 'permission-error') && (
-          <div className="rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 p-4 space-y-2.5 text-xs">
-            <div className="flex items-center gap-2 font-black text-amber-800 dark:text-amber-300">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              One-Time Firebase Console Setup Required for Cross-Device Sync
-            </div>
-            <ol className="list-decimal list-inside space-y-1 text-slate-700 dark:text-zinc-300 leading-relaxed">
-              <li>
-                Open <strong>Firebase Console</strong> and select project{' '}
-                <code className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-zinc-900 font-mono text-[11px]">
-                  {fbConfig.projectId || 'kpando-anglican-portal'}
-                </code>
-                .
-              </li>
-              <li>
-                Go to <strong>Build → Firestore Database → Create database</strong>, pick a region, and enable it.
-              </li>
-              <li>
-                Open the <strong>Rules</strong> tab, publish the rule below for{' '}
-                <code className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-zinc-900 font-mono text-[11px]">
-                  {PORTAL_DOC_COLLECTION}/{PORTAL_DOC_ID}
-                </code>
-                , then open this page on the laptop with your 35 learners and click{' '}
-                <strong>Push This Device to Cloud</strong>.
-              </li>
-            </ol>
-            <pre className="p-3 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto leading-relaxed">
-{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /${PORTAL_DOC_COLLECTION}/${PORTAL_DOC_ID} {
-      allow read, write: if true;
-    }
-  }
-}`}
-            </pre>
-          </div>
-        )}
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-          {[
-            { key: 'apiKey', label: 'API Key (VITE_FIREBASE_API_KEY)' },
-            { key: 'authDomain', label: 'Auth Domain (VITE_FIREBASE_AUTH_DOMAIN)' },
-            { key: 'projectId', label: 'Project ID (VITE_FIREBASE_PROJECT_ID)' },
-            { key: 'storageBucket', label: 'Storage Bucket' },
-            { key: 'messagingSenderId', label: 'Messaging Sender ID' },
-            { key: 'appId', label: 'App ID' }
-          ].map((field) => (
-            <div key={field.key}>
-              <label className="block font-bold mb-1">{field.label}</label>
-              <input
-                type="text"
-                value={fbConfig[field.key] || ''}
-                onChange={(e) => setFbConfig({ ...fbConfig, [field.key]: e.target.value.trim() })}
-                placeholder={`Enter ${field.key}...`}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 font-mono outline-none"
-              />
-            </div>
-          ))}
         </div>
       </div>
     </div>

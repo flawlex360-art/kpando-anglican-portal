@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Wallet, Search, FileSpreadsheet, Printer, Plus, Trash2,
   CheckCircle2, RotateCcw, Edit3, Save, Coins, TrendingUp, AlertCircle,
-  Receipt, LayoutGrid
+  Receipt, LayoutGrid, MessageSquare, Send, X, CheckSquare, Square, Copy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -11,6 +11,14 @@ import {
   formatCurrencyGhc,
   computeBasic9FinanceSummary
 } from '../utils/calculations';
+import {
+  sendFeePaymentSms,
+  dispatchOwingFeeReminders,
+  filterOwingRecipients,
+  interpolateSmsTemplate,
+  formatSmsCurrency,
+  formatSmsName
+} from '../utils/smsService';
 import { exportBasic9ExpenditureExcel } from '../utils/excelExport';
 import Basic9ReceiptModal from './Basic9Receipts';
 
@@ -221,12 +229,17 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
   );
 }
 
+const DEFAULT_FEE_REMINDER_TEMPLATE =
+  "Dear {parent_name}, kindly settle {student_name}'s Basic 9 fee balance. Amount left to pay: {amount_left} (Paid: {amount_paid} of {total_fee}). Thank you. - {school_name}";
+
 export default function Basic9Expenditure({
   students = [],
   financeData = {},
   onSaveFinance,
   schoolProfile = {},
   currentUser,
+  gatewayConfig,
+  onAddSmsLog,
   onPrintExpenditure,
   onPrintReceipt,
   onPrintGeneralReceipts
@@ -238,6 +251,12 @@ export default function Basic9Expenditure({
   const [editingTotalValue, setEditingTotalValue] = useState('');
   const [editingFee, setEditingFee] = useState(false);
   const [receiptModal, setReceiptModal] = useState({ open: false, mode: 'amount', financeKey: null });
+  const [lastPaymentSms, setLastPaymentSms] = useState(null);
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_FEE_REMINDER_TEMPLATE);
+  const [selectedOwingKeys, setSelectedOwingKeys] = useState([]);
+  const [reminderPreviewKey, setReminderPreviewKey] = useState(null);
+  const [sendingReminders, setSendingReminders] = useState(false);
   const [feeInput, setFeeInput] = useState(() =>
     String(
       financeData?.feePerLearner !== undefined
@@ -257,6 +276,13 @@ export default function Basic9Expenditure({
     () => computeBasic9FinanceSummary(students, financeData),
     [students, financeData]
   );
+
+  const owingRows = useMemo(
+    () => filterOwingRecipients(summary.learnerRows),
+    [summary.learnerRows]
+  );
+
+  const autoSmsEnabled = financeData?.autoSmsOnPayment !== false;
 
   const filteredRows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -281,6 +307,119 @@ export default function Basic9Expenditure({
       };
       return updater(base);
     });
+  };
+
+  const triggerAutoPaymentSms = async ({ row, amountPaidNow, totalPaidAfter, amountLeftAfter }) => {
+    if (!autoSmsEnabled || amountPaidNow <= 0) return;
+
+    const result = await sendFeePaymentSms({
+      student: row,
+      amountPaidNow,
+      totalPaidAfter,
+      amountLeftAfter,
+      schoolProfile,
+      gatewayConfig
+    });
+
+    setLastPaymentSms({
+      ...result,
+      timestamp: new Date().toLocaleTimeString()
+    });
+
+    if (result.sent && onAddSmsLog) {
+      onAddSmsLog({
+        id: `sms-${Date.now()}`,
+        timestamp: new Date().toLocaleString(),
+        category: 'Fee Payment Auto-SMS',
+        gateway: result.mode,
+        recipientCount: 1,
+        deliveredCount: 1,
+        sampleMessage: result.message
+      });
+    }
+
+    if (result.sent) {
+      toast.success(
+        `Auto-SMS sent to ${result.parentDisplay} (Left: ${formatSmsCurrency(amountLeftAfter)}) via ${result.mode}`
+      );
+    } else {
+      toast(`Payment saved — SMS text ready below (${result.error || 'SMS not delivered'}).`);
+    }
+  };
+
+  const handleToggleAutoSms = () => {
+    updateFinance((base) => ({
+      ...base,
+      autoSmsOnPayment: base.autoSmsOnPayment === false
+    }));
+  };
+
+  const handleOpenReminderModal = () => {
+    if (owingRows.length === 0) {
+      toast.success('All Basic 9 parents have cleared their fees — nobody is owing.');
+      return;
+    }
+    setSelectedOwingKeys(owingRows.map((r) => r.financeKey));
+    setReminderPreviewKey(owingRows[0]?.financeKey || null);
+    setReminderModalOpen(true);
+  };
+
+  const handleToggleOwingKey = (key) => {
+    setSelectedOwingKeys((prev) =>
+      prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+    );
+  };
+
+  const handleSendOwingReminders = async () => {
+    const selectedRows = filterOwingRecipients(
+      owingRows.filter((r) => selectedOwingKeys.includes(r.financeKey))
+    );
+    if (selectedRows.length === 0) {
+      toast.error('Select at least one owing parent to send reminders.');
+      return;
+    }
+    if (!reminderTemplate.trim()) {
+      toast.error('Reminder message cannot be empty.');
+      return;
+    }
+
+    setSendingReminders(true);
+    try {
+      const result = await dispatchOwingFeeReminders({
+        rows: selectedRows,
+        messageTemplate: reminderTemplate,
+        schoolProfile,
+        gatewayConfig
+      });
+
+      if (onAddSmsLog && result.total > 0) {
+        onAddSmsLog({
+          id: `sms-${Date.now()}`,
+          timestamp: new Date().toLocaleString(),
+          category: 'Owing Fees Reminder',
+          gateway: result.mode,
+          recipientCount: result.total,
+          deliveredCount: result.deliveredCount,
+          sampleMessage: result.dispatches[0]?.message || reminderTemplate
+        });
+      }
+
+      if (result.failedCount > 0) {
+        const firstReason = result.failures?.[0]?.reason;
+        const msg = `Sent ${result.deliveredCount}/${result.total} fee reminders via ${result.mode} (${result.failedCount} failed${firstReason ? `: ${firstReason}` : ''}).`;
+        if (result.deliveredCount === 0) toast.error(msg);
+        else toast.success(msg);
+      } else {
+        toast.success(
+          `Sent personalized balance reminders to ${result.deliveredCount} owing parent${result.deliveredCount === 1 ? '' : 's'} via ${result.mode}! (${summary.clearedCount} cleared skipped)`
+        );
+      }
+      setReminderModalOpen(false);
+    } catch (err) {
+      toast.error(`Fee reminder error: ${err.message}`);
+    } finally {
+      setSendingReminders(false);
+    }
   };
 
   const handleAddLearnerPayment = (row) => {
@@ -329,6 +468,12 @@ export default function Basic9Expenditure({
     });
 
     toast.success(`Added ${formatCurrencyGhc(added)} for ${row.name} — Total Paid: ${formatCurrencyGhc(newTotal)}`);
+    triggerAutoPaymentSms({
+      row,
+      amountPaidNow: added,
+      totalPaidAfter: newTotal,
+      amountLeftAfter: newLeft
+    });
   };
 
   const handleSaveEditedTotal = (row) => {
@@ -352,13 +497,40 @@ export default function Basic9Expenditure({
 
   const handleQuickPayment = (row, amount) => {
     const rounded = Math.round(amount * 100) / 100;
-    updateFinance((base) => ({
-      ...base,
-      paymentsByLearner: {
-        ...base.paymentsByLearner,
-        [row.financeKey]: rounded
-      }
-    }));
+    const delta = Math.round((rounded - row.amountPaid) * 100) / 100;
+    const newLeft = Math.max(0, Math.round((row.targetFee - rounded) * 100) / 100);
+    const today = new Date().toISOString().slice(0, 10);
+
+    updateFinance((base) => {
+      const existingHistory = Array.isArray(base.paymentHistory) ? base.paymentHistory : [];
+      const nextHistory =
+        delta > 0
+          ? [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                receiptNo: `KABS-B9-${String(existingHistory.length + 1).padStart(4, '0')}`,
+                financeKey: row.financeKey,
+                studentName: row.name,
+                indexNo: row.indexNo,
+                date: today,
+                amountPaidNow: delta,
+                totalPaidAfter: rounded,
+                amountLeftAfter: newLeft,
+                recordedBy: currentUser?.name || currentUser?.email || 'Basic 9 Teacher'
+              },
+              ...existingHistory
+            ].slice(0, 300)
+          : existingHistory;
+
+      return {
+        ...base,
+        paymentsByLearner: {
+          ...base.paymentsByLearner,
+          [row.financeKey]: rounded
+        },
+        paymentHistory: nextHistory
+      };
+    });
     setPaymentAddDrafts((prev) => {
       const next = { ...prev };
       delete next[row.financeKey];
@@ -373,6 +545,14 @@ export default function Basic9Expenditure({
         ? `${row.name}: ${formatCurrencyGhc(rounded)} recorded`
         : `${row.name}: payment cleared`
     );
+    if (delta > 0) {
+      triggerAutoPaymentSms({
+        row,
+        amountPaidNow: delta,
+        totalPaidAfter: rounded,
+        amountLeftAfter: newLeft
+      });
+    }
   };
 
   const handleSaveTargetFee = (e) => {
@@ -546,6 +726,30 @@ export default function Basic9Expenditure({
 
           <button
             type="button"
+            onClick={handleToggleAutoSms}
+            title="Automatically generate and send SMS receipt whenever a parent pays an amount"
+            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+              autoSmsEnabled
+                ? 'border-emerald-200 dark:border-emerald-800/70 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300'
+                : 'border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Auto-SMS: {autoSmsEnabled ? 'ON' : 'OFF'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenReminderModal}
+            className="px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
+            title="Send balance reminders ONLY to owing parents (cleared parents are excluded)"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Fee Reminders ({owingRows.length} Owing)
+          </button>
+
+          <button
+            type="button"
             onClick={() => setReceiptModal({ open: true, mode: 'amount', financeKey: null })}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
           >
@@ -579,6 +783,55 @@ export default function Basic9Expenditure({
           </button>
         </div>
       </div>
+
+      {/* Latest Auto-Generated Payment SMS Receipt Banner */}
+      {lastPaymentSms && (
+        <div className="glass-card rounded-2xl p-4 border-l-4 border-l-emerald-600 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                Payment SMS Generated ({lastPaymentSms.timestamp})
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  lastPaymentSms.sent
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                }`}
+              >
+                {lastPaymentSms.sent ? `Dispatched (${lastPaymentSms.mode})` : lastPaymentSms.error || 'Copy Ready'}
+              </span>
+              <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                To: {lastPaymentSms.parentDisplay} ({lastPaymentSms.rawPhone || 'No phone'})
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 dark:text-zinc-200 leading-relaxed">
+              {lastPaymentSms.message}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(lastPaymentSms.message);
+                toast.success('Payment SMS copied to clipboard.');
+              }}
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold flex items-center gap-1"
+            >
+              <Copy className="w-3.5 h-3.5" /> Copy
+            </button>
+            <button
+              type="button"
+              onClick={() => setLastPaymentSms(null)}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Consolidated Summary Columns Row (Minimalist Swiss Strip) */}
       <div className="glass-card rounded-2xl overflow-hidden">
@@ -1085,6 +1338,192 @@ export default function Basic9Expenditure({
           onPrintGeneralReceipts && onPrintGeneralReceipts(options);
         }}
       />
+
+      {reminderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Send className="w-4 h-4 text-amber-600" />
+                  Send Fee Balance Reminders (Owing Parents Only)
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Showing {owingRows.length} owing learner{owingRows.length === 1 ? '' : 's'}.{' '}
+                  <strong className="text-emerald-700 dark:text-emerald-400">
+                    {summary.clearedCount} cleared parent{summary.clearedCount === 1 ? '' : 's'}
+                  </strong>{' '}
+                  are automatically excluded and will not receive any message.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReminderModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                    Personalized Reminder Template
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setReminderTemplate(DEFAULT_FEE_REMINDER_TEMPLATE)}
+                    className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline"
+                  >
+                    Reset Default
+                  </button>
+                </div>
+                <textarea
+                  rows={3}
+                  value={reminderTemplate}
+                  onChange={(e) => setReminderTemplate(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {['{parent_name}', '{student_name}', '{amount_left}', '{amount_paid}', '{total_fee}', '{school_name}'].map((tok) => (
+                    <button
+                      key={tok}
+                      type="button"
+                      onClick={() => setReminderTemplate((p) => `${p} ${tok}`)}
+                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-emerald-100 text-[10px] font-mono font-semibold text-slate-600 dark:text-zinc-300"
+                    >
+                      +{tok}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {owingRows.length > 0 && (() => {
+                const previewRow = owingRows.find((r) => r.financeKey === reminderPreviewKey) || owingRows[0];
+                const sampleText = interpolateSmsTemplate(reminderTemplate, {
+                  parentName: previewRow.parentName,
+                  studentName: previewRow.name,
+                  className: 'Basic 9',
+                  amountPaid: previewRow.amountPaid,
+                  amountLeft: previewRow.amountLeft,
+                  targetFee: previewRow.targetFee,
+                  schoolName: schoolProfile?.schoolName
+                });
+                return (
+                  <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                        Live Parent Preview ({sampleText.length} chars)
+                      </span>
+                      <select
+                        value={previewRow.financeKey}
+                        onChange={(e) => setReminderPreviewKey(e.target.value)}
+                        className="text-[11px] font-bold bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1 outline-none"
+                      >
+                        {owingRows.map((r) => (
+                          <option key={r.financeKey} value={r.financeKey}>
+                            {formatSmsName(r.parentName || 'Parent')} — {formatSmsName(r.name)} (Left: {formatSmsCurrency(r.amountLeft)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-xs text-slate-800 dark:text-zinc-200 font-medium leading-relaxed">
+                      {sampleText}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                <div className="px-3.5 py-2 bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs font-bold">
+                  <span>
+                    Owing Recipients Selected ({selectedOwingKeys.length}/{owingRows.length})
+                  </span>
+                  <div className="flex gap-2 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOwingKeys(owingRows.map((r) => r.financeKey))}
+                      className="text-emerald-700 dark:text-emerald-400 hover:underline"
+                    >
+                      Select All Owing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedOwingKeys([])}
+                      className="text-slate-500 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-zinc-800 max-h-56 overflow-y-auto">
+                  {owingRows.map((row) => {
+                    const checked = selectedOwingKeys.includes(row.financeKey);
+                    return (
+                      <div
+                        key={row.financeKey}
+                        onClick={() => handleToggleOwingKey(row.financeKey)}
+                        className={`px-3.5 py-2 flex items-center justify-between gap-3 cursor-pointer text-xs ${
+                          checked ? 'bg-amber-50/40 dark:bg-amber-950/20' : 'hover:bg-slate-50 dark:hover:bg-zinc-900/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {checked ? (
+                            <CheckSquare className="w-4 h-4 text-amber-600 shrink-0" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                          )}
+                          <div className="truncate">
+                            <p className="font-bold text-slate-900 dark:text-white truncate">
+                              {formatSmsName(row.parentName || 'Parent/Guardian')}{' '}
+                              <span className="font-normal text-slate-500 dark:text-zinc-400">
+                                • {formatSmsName(row.name)}
+                              </span>
+                            </p>
+                            <p className="text-[11px] font-mono text-slate-500 dark:text-zinc-400">
+                              {row.parentPhone || 'No phone on file'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/50 shrink-0 tabular-nums">
+                          Left: {formatCurrencyGhc(row.amountLeft)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/60 dark:bg-zinc-900/40">
+              <span className="text-[11px] text-slate-500 dark:text-zinc-400">
+                Gateway: <strong>{gatewayConfig?.provider === 'simulation' ? 'Simulation Mode' : String(gatewayConfig?.provider || 'simulation').toUpperCase()}</strong>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReminderModalOpen(false)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={sendingReminders || selectedOwingKeys.length === 0}
+                  onClick={handleSendOwingReminders}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-black flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {sendingReminders
+                    ? 'Sending...'
+                    : `Send Reminders to ${selectedOwingKeys.length} Owing Parent${selectedOwingKeys.length === 1 ? '' : 's'}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

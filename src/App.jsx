@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   LayoutDashboard, Users, FileSpreadsheet, Award, FileText,
   MessageSquare, Settings, LogOut, Globe, Sun, Moon, ShieldCheck, Wallet,
-  Cloud, CloudOff, RefreshCw
+  Cloud, CloudOff, RefreshCw, UploadCloud, Download, X, AlertTriangle
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -33,6 +33,8 @@ import { PrintableAmountPaidReceipt, PrintableGeneralReceipts } from './componen
 import SmsCenter from './components/SmsCenter';
 import SchoolSettings from './components/SchoolSettings';
 import {
+  PORTAL_DOC_COLLECTION,
+  PORTAL_DOC_ID,
   classifyFirebaseError,
   fetchPortalSnapshot,
   isFirebaseConfigured,
@@ -141,6 +143,7 @@ export default function App() {
     lastSyncedAt: '',
     message: ''
   });
+  const [showCloudModal, setShowCloudModal] = useState(false);
 
   // Print states: null | { type: 'broadsheet' } | { type: 'single-card', student } | { type: 'all-cards' }
   const [printJob, setPrintJob] = useState(null);
@@ -712,8 +715,8 @@ export default function App() {
                 </select>
 
                 <button
-                  onClick={() => setActiveTab('settings')}
-                  title={cloudSync.message}
+                  onClick={() => setShowCloudModal(true)}
+                  title={cloudSync.message || 'Inspect Firebase Cloud Sync status'}
                   className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
                     cloudSync.status === 'connected'
                       ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/80'
@@ -851,6 +854,7 @@ export default function App() {
                 activeClass={activeClass}
                 activeMock={activeMock}
                 rankedResults={rankedResults}
+                basic9Finance={basic9Finance}
                 schoolProfile={schoolProfile}
                 gatewayConfig={gatewayConfig}
                 onSaveGatewayConfig={setGatewayConfig}
@@ -866,6 +870,8 @@ export default function App() {
                 onSaveFinance={setBasic9Finance}
                 schoolProfile={schoolProfile}
                 currentUser={currentUser}
+                gatewayConfig={gatewayConfig}
+                onAddSmsLog={(log) => setSmsLogs((prev) => [log, ...prev])}
                 onPrintExpenditure={() => setPrintJob({ type: 'expenditure' })}
                 onPrintReceipt={(receipt) => setPrintJob({ type: 'b9-receipt', receipt })}
                 onPrintGeneralReceipts={(options) => setPrintJob({ type: 'b9-general-receipts', options })}
@@ -876,12 +882,80 @@ export default function App() {
                 schoolProfile={schoolProfile}
                 onSaveProfile={setSchoolProfile}
                 onResetDemoData={handleClearAllData}
-                cloudSync={cloudSync}
-                onPushToFirebase={handlePushToFirebase}
-                onPullFromFirebase={handlePullFromFirebase}
               />
             )}
           </main>
+
+          {showCloudModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+              <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 dark:text-white">
+                      {cloudSync.status === 'syncing' ? (
+                        <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+                      ) : cloudSync.status === 'connected' ? (
+                        <Cloud className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <CloudOff className="w-4 h-4 text-amber-600" />
+                      )}
+                      Cloud Sync Status
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                      {cloudSync.message || 'Automatic cross-device sync via Firebase Firestore.'}
+                    </p>
+                    {cloudSync.lastSyncedAt && (
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Last synced: {new Date(cloudSync.lastSyncedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCloudModal(false)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {(cloudSync.status === 'needs-setup' || cloudSync.status === 'permission-error') && (
+                  <div className="rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/30 p-3.5 space-y-2 text-xs">
+                    <div className="flex items-center gap-2 font-black text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Firebase Console Setup Needed
+                    </div>
+                    <p className="text-slate-700 dark:text-zinc-300 leading-relaxed">
+                      Ensure <strong>Firestore Database</strong> is created and Rules allow{' '}
+                      <code className="px-1 py-0.5 rounded bg-white/80 dark:bg-zinc-900 font-mono text-[11px]">
+                        /{PORTAL_DOC_COLLECTION}/{PORTAL_DOC_ID}
+                      </code>
+                      , then click <strong>Push This Device to Cloud</strong> on your main laptop.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    disabled={cloudSync.status === 'syncing'}
+                    onClick={handlePullFromFirebase}
+                    className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Pull from Cloud
+                  </button>
+                  <button
+                    type="button"
+                    disabled={cloudSync.status === 'syncing'}
+                    onClick={handlePushToFirebase}
+                    className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" /> Push This Device to Cloud
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
