@@ -206,7 +206,7 @@ export default function SmsCenter({
                 maxLength={11}
                 value={gatewayConfig.senderId}
                 onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, senderId: e.target.value })}
-                placeholder={serverStatus?.defaultSenderId ? `${serverStatus.defaultSenderId} (Vercel default)` : 'KpandoAng'}
+                placeholder={serverStatus?.defaultSenderId ? `${serverStatus.defaultSenderId} (Vercel default)` : 'KpandoAngli'}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
               />
               {serverStatus?.defaultSenderId && (
@@ -306,7 +306,7 @@ export default function SmsCenter({
                   2. Customize Message Template
                 </label>
                 <span className="text-[11px] font-mono text-slate-400">
-                  {previewText.length} chars (~{Math.max(1, Math.ceil(previewText.length / 160))} SMS page)
+                  {previewText.length} chars ({previewText.length <= 160 ? '1 SMS page' : `${Math.ceil(previewText.length / 153)} SMS pages`})
                 </span>
               </div>
               <textarea

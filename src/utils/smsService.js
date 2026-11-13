@@ -13,11 +13,25 @@ export function formatGhanaPhone(phone) {
   return digits;
 }
 
+/**
+ * Formats uppercase or inconsistent parent/learner names into Title Case
+ * (capitalizing the first letter of each word) so names blend cleanly into SMS copy.
+ */
+export function formatSmsName(name) {
+  const cleaned = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!cleaned) return '';
+  return cleaned
+    .toLowerCase()
+    .replace(/(^|[\s\-/.(]|'(?!s(?:\s|$)))([a-z])/g, (_, sep, ch) => `${sep}${ch.toUpperCase()}`);
+}
+
 export function interpolateSmsTemplate(template, context) {
   if (!template) return '';
+  const parentDisplay = formatSmsName(context.parentName) || 'Parent/Guardian';
+  const studentDisplay = formatSmsName(context.studentName) || 'your ward';
   const replacements = {
-    '{parent_name}': context.parentName || 'Parent/Guardian',
-    '{student_name}': context.studentName || 'your ward',
+    '{parent_name}': parentDisplay,
+    '{student_name}': studentDisplay,
     '{index_no}': context.indexNo || '',
     '{class}': context.className || 'Basic 9',
     '{aggregate}': context.aggregate !== undefined ? String(context.aggregate) : '-',
@@ -69,7 +83,7 @@ export async function dispatchParentSmsBatch({
   const apiKey = (gatewayConfig?.apiKey || '').trim();
   const dispatchSecret = (gatewayConfig?.dispatchSecret || '').trim();
   const rawSenderId = (gatewayConfig?.senderId || '').trim().slice(0, 11);
-  const fallbackSenderId = rawSenderId || 'KpandoAng';
+  const fallbackSenderId = rawSenderId || 'KpandoAngli';
 
   const dispatches = recipients.map((rec) => {
     const formattedPhone = formatGhanaPhone(rec.parentPhone);
