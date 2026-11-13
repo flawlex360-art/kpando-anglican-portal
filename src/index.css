@@ -71,6 +71,11 @@
     margin: 8mm;
   }
 
+  @page receipts-landscape {
+    size: A4 landscape;
+    margin: 7mm;
+  }
+
   body {
     background-color: white !important;
     color: black !important;
@@ -145,5 +150,13 @@
     padding: 2.5px 4px !important;
     border: 1px solid #000 !important;
     color: #000 !important;
+  }
+
+  .print-receipts-landscape {
+    page: receipts-landscape;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }

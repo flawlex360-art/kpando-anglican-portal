@@ -553,7 +553,7 @@ export default function Basic9Expenditure({
             onClick={() => setReceiptModal({ open: true, mode: 'general', financeKey: null })}
             className="px-3.5 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
           >
-            <LayoutGrid className="w-4 h-4" /> General Receipts (6/Page)
+            <LayoutGrid className="w-4 h-4" /> General Receipts (4/Page)
           </button>
 
           <button
