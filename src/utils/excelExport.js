@@ -200,7 +200,6 @@ export async function exportBasic9ExpenditureExcel({ students, financeData, scho
     'S/N',
     'Index No.',
     'Learner Name',
-    'Target Fee (GHC)',
     'Total Amount Paid (GHC)',
     'Amount Left to Pay (GHC)',
     'Status'
@@ -212,17 +211,16 @@ export async function exportBasic9ExpenditureExcel({ students, financeData, scho
       idx + 1,
       rowItem.indexNo || '-',
       rowItem.name,
-      rowItem.targetFee,
       rowItem.amountPaid,
       rowItem.amountLeft,
       rowItem.status
     ]);
     r.height = 19;
     r.eachCell((cell, colIdx) => {
-      cell.font = { name: 'Calibri', size: 10, bold: colIdx === 6 && rowItem.amountLeft > 0 };
+      cell.font = { name: 'Calibri', size: 10, bold: colIdx === 5 && rowItem.amountLeft > 0 };
       cell.alignment = { horizontal: colIdx === 3 ? 'left' : 'center', vertical: 'middle' };
       cell.border = thinBorder;
-      if (colIdx >= 4 && colIdx <= 6) cell.numFmt = '#,##0.00';
+      if (colIdx >= 4 && colIdx <= 5) cell.numFmt = '#,##0.00';
     });
   });
 
@@ -230,7 +228,6 @@ export async function exportBasic9ExpenditureExcel({ students, financeData, scho
     '',
     '',
     'TOTAL LEARNER COLLECTIONS',
-    summary.totalExpected,
     summary.totalCollected,
     summary.totalLeftToPay,
     `${summary.clearedCount}/${summary.learnerRows.length} Cleared`
@@ -241,7 +238,7 @@ export async function exportBasic9ExpenditureExcel({ students, financeData, scho
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
     cell.alignment = { horizontal: colIdx === 3 ? 'left' : 'center', vertical: 'middle' };
     cell.border = thinBorder;
-    if (colIdx >= 4 && colIdx <= 6) cell.numFmt = '#,##0.00';
+    if (colIdx >= 4 && colIdx <= 5) cell.numFmt = '#,##0.00';
   });
 
   sheet.addRow([]);

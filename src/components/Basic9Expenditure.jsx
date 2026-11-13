@@ -63,7 +63,7 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
             {schoolProfile.academicYear || '2025/2026 Academic Year'} • {schoolProfile.currentTerm || 'Term 2'}
           </p>
           <p className="text-[10px] text-slate-500">
-            Fee / Learner: GH&#8373; {formatCurrencyGhc(summary.targetFee)} • Printed: {todayLabel}
+            Fee / Learner: {formatCurrencyGhc(summary.targetFee)} • Printed: {todayLabel}
           </p>
         </div>
       </div>
@@ -104,10 +104,9 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
             <th className="border border-slate-400 px-1.5 py-1 text-center w-9">S/N</th>
             <th className="border border-slate-400 px-2 py-1 text-left w-28">Index No.</th>
             <th className="border border-slate-400 px-2 py-1 text-left">Learner Name</th>
-            <th className="border border-slate-400 px-2 py-1 text-right w-24">Fee Due (GH&#8373;)</th>
-            <th className="border border-slate-400 px-2 py-1 text-right w-24">Amount Paid (GH&#8373;)</th>
-            <th className="border border-slate-400 px-2 py-1 text-right w-24">Left to Pay (GH&#8373;)</th>
-            <th className="border border-slate-400 px-2 py-1 text-center w-20">Status</th>
+            <th className="border border-slate-400 px-2 py-1 text-right w-28">Amount Paid (GH&#8373;)</th>
+            <th className="border border-slate-400 px-2 py-1 text-right w-28">Left to Pay (GH&#8373;)</th>
+            <th className="border border-slate-400 px-2 py-1 text-center w-24">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -116,7 +115,6 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
               <td className="border border-slate-300 px-1.5 py-1 text-center font-semibold">{row.sn || idx + 1}</td>
               <td className="border border-slate-300 px-2 py-1 font-mono text-[10px]">{row.indexNo || '-'}</td>
               <td className="border border-slate-300 px-2 py-1 font-semibold">{row.name}</td>
-              <td className="border border-slate-300 px-2 py-1 text-right">{formatCurrencyGhc(row.targetFee)}</td>
               <td className="border border-slate-300 px-2 py-1 text-right font-bold text-emerald-900">
                 {formatCurrencyGhc(row.amountPaid)}
               </td>
@@ -130,16 +128,17 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
         <tfoot>
           <tr className="bg-emerald-50 font-black text-[11px]">
             <td colSpan={3} className="border border-slate-400 px-2 py-1.5 text-right uppercase">
-              All Basic 9 Totals ({summary.clearedCount} Cleared, {summary.partialCount} Partial, {summary.unpaidCount} Unpaid)
+              All Basic 9 Totals (Expected: {formatCurrencyGhc(summary.totalExpected)})
             </td>
-            <td className="border border-slate-400 px-2 py-1.5 text-right">{formatCurrencyGhc(summary.totalExpected)}</td>
             <td className="border border-slate-400 px-2 py-1.5 text-right text-emerald-900">
               {formatCurrencyGhc(summary.totalCollected)}
             </td>
             <td className="border border-slate-400 px-2 py-1.5 text-right text-amber-900">
               {formatCurrencyGhc(summary.totalLeftToPay)}
             </td>
-            <td className="border border-slate-400 px-2 py-1.5 text-center">GH&#8373;</td>
+            <td className="border border-slate-400 px-2 py-1.5 text-center text-[10px]">
+              {summary.clearedCount}/{summary.learnerRows.length} Cleared
+            </td>
           </tr>
         </tfoot>
       </table>
@@ -190,7 +189,7 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
           </tr>
           <tr className="bg-emerald-50 font-black">
             <td colSpan={4} className="border border-slate-400 px-2 py-1.5 text-right uppercase">
-              Expenditure Returns (All Total Paid GH&#8373; {formatCurrencyGhc(summary.totalCollected)} &minus; Total Expenditure GH&#8373; {formatCurrencyGhc(summary.totalExpenditure)})
+              Expenditure Returns (All Total Paid {formatCurrencyGhc(summary.totalCollected)} &minus; Total Expenditure {formatCurrencyGhc(summary.totalExpenditure)})
             </td>
             <td className={`border border-slate-400 px-2 py-1.5 text-right ${summary.expenditureReturns < 0 ? 'text-rose-900' : 'text-emerald-950'}`}>
               {formatCurrencyGhc(summary.expenditureReturns)}
@@ -226,7 +225,9 @@ export default function Basic9Expenditure({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [paymentDrafts, setPaymentDrafts] = useState({});
+  const [paymentAddDrafts, setPaymentAddDrafts] = useState({});
+  const [editingTotalKey, setEditingTotalKey] = useState(null);
+  const [editingTotalValue, setEditingTotalValue] = useState('');
   const [editingFee, setEditingFee] = useState(false);
   const [feeInput, setFeeInput] = useState(() =>
     String(
@@ -272,25 +273,51 @@ export default function Basic9Expenditure({
     });
   };
 
-  const commitLearnerPayment = (financeKey, rawValue) => {
-    const parsed = parseFloat(String(rawValue).replace(/,/g, ''));
-    const sanitized = Number.isFinite(parsed) && parsed >= 0
-      ? Math.round(parsed * 100) / 100
-      : 0;
+  const handleAddLearnerPayment = (row) => {
+    const raw = paymentAddDrafts[row.financeKey];
+    const parsed = parseFloat(String(raw ?? '').replace(/,/g, ''));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      toast.error(`Enter a payment amount above GH₵ 0.00 for ${row.name}.`);
+      return;
+    }
+
+    const added = Math.round(parsed * 100) / 100;
+    const newTotal = Math.round((row.amountPaid + added) * 100) / 100;
 
     updateFinance((base) => ({
       ...base,
       paymentsByLearner: {
         ...base.paymentsByLearner,
-        [financeKey]: sanitized
+        [row.financeKey]: newTotal
       }
     }));
 
-    setPaymentDrafts((prev) => {
+    setPaymentAddDrafts((prev) => {
       const next = { ...prev };
-      delete next[financeKey];
+      delete next[row.financeKey];
       return next;
     });
+
+    toast.success(`Added ${formatCurrencyGhc(added)} for ${row.name} — Total Paid: ${formatCurrencyGhc(newTotal)}`);
+  };
+
+  const handleSaveEditedTotal = (row) => {
+    const parsed = parseFloat(String(editingTotalValue).replace(/,/g, ''));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      toast.error('Enter a valid total paid amount (0 or above).');
+      return;
+    }
+    const cleanTotal = Math.round(parsed * 100) / 100;
+    updateFinance((base) => ({
+      ...base,
+      paymentsByLearner: {
+        ...base.paymentsByLearner,
+        [row.financeKey]: cleanTotal
+      }
+    }));
+    setEditingTotalKey(null);
+    setEditingTotalValue('');
+    toast.success(`Updated ${row.name} Total Paid to ${formatCurrencyGhc(cleanTotal)}`);
   };
 
   const handleQuickPayment = (row, amount) => {
@@ -302,14 +329,18 @@ export default function Basic9Expenditure({
         [row.financeKey]: rounded
       }
     }));
-    setPaymentDrafts((prev) => {
+    setPaymentAddDrafts((prev) => {
       const next = { ...prev };
       delete next[row.financeKey];
       return next;
     });
+    if (editingTotalKey === row.financeKey) {
+      setEditingTotalKey(null);
+      setEditingTotalValue('');
+    }
     toast.success(
       rounded > 0
-        ? `${row.name}: GH₵ ${formatCurrencyGhc(rounded)} recorded`
+        ? `${row.name}: ${formatCurrencyGhc(rounded)} recorded`
         : `${row.name}: payment cleared`
     );
   };
@@ -328,7 +359,7 @@ export default function Basic9Expenditure({
     }));
     setFeeInput(String(cleanFee));
     setEditingFee(false);
-    toast.success(`Basic 9 expected fee updated to GH₵ ${formatCurrencyGhc(cleanFee)} per learner.`);
+    toast.success(`Basic 9 expected fee updated to ${formatCurrencyGhc(cleanFee)} per learner.`);
   };
 
   const handleResetDefaultFee = () => {
@@ -338,7 +369,7 @@ export default function Basic9Expenditure({
     }));
     setFeeInput(String(BASIC9_DEFAULT_FEE));
     setEditingFee(false);
-    toast.success(`Restored standard fee to GH₵ ${formatCurrencyGhc(BASIC9_DEFAULT_FEE)} per learner.`);
+    toast.success(`Restored standard fee to ${formatCurrencyGhc(BASIC9_DEFAULT_FEE)} per learner.`);
   };
 
   const handleAddExpense = (e) => {
@@ -375,7 +406,7 @@ export default function Basic9Expenditure({
       reference: '',
       amount: ''
     }));
-    toast.success(`Recorded expense: ${desc} (GH₵ ${formatCurrencyGhc(cleanAmount)})`);
+    toast.success(`Recorded expense: ${desc} (${formatCurrencyGhc(cleanAmount)})`);
   };
 
   const handleDeleteExpense = (expenseId) => {
@@ -424,7 +455,7 @@ export default function Basic9Expenditure({
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Track every learner&apos;s payments against GH&#8373; {formatCurrencyGhc(summary.targetFee)}, outstanding balances, class expenses, and net expenditure returns.
+              Track every learner&apos;s payments against {formatCurrencyGhc(summary.targetFee)}, outstanding balances, class expenses, and net expenditure returns.
             </p>
           </div>
         </div>
@@ -433,7 +464,7 @@ export default function Basic9Expenditure({
           {!editingFee ? (
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50">
               <span className="text-xs font-bold text-amber-900 dark:text-amber-300">
-                Fee / Learner: GH&#8373; {formatCurrencyGhc(summary.targetFee)}
+                Fee / Learner: {formatCurrencyGhc(summary.targetFee)}
               </span>
               <button
                 type="button"
@@ -530,26 +561,26 @@ export default function Basic9Expenditure({
             <tbody>
               <tr className="text-base sm:text-lg font-black">
                 <td className="px-4 py-3.5 text-slate-800 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800">
-                  GH&#8373; {formatCurrencyGhc(summary.targetFee)}
+                  {formatCurrencyGhc(summary.targetFee)}
                 </td>
                 <td className="px-4 py-3.5 text-slate-800 dark:text-slate-100 border-r border-slate-100 dark:border-slate-800">
-                  GH&#8373; {formatCurrencyGhc(summary.totalExpected)}
+                  {formatCurrencyGhc(summary.totalExpected)}
                 </td>
                 <td className="px-4 py-3.5 text-emerald-700 dark:text-emerald-300 border-r border-slate-100 dark:border-slate-800 bg-emerald-50/40 dark:bg-emerald-950/20">
-                  GH&#8373; {formatCurrencyGhc(summary.totalCollected)}
+                  {formatCurrencyGhc(summary.totalCollected)}
                 </td>
                 <td className="px-4 py-3.5 text-amber-700 dark:text-amber-300 border-r border-slate-100 dark:border-slate-800 bg-amber-50/40 dark:bg-amber-950/20">
-                  GH&#8373; {formatCurrencyGhc(summary.totalLeftToPay)}
+                  {formatCurrencyGhc(summary.totalLeftToPay)}
                 </td>
                 <td className="px-4 py-3.5 text-rose-700 dark:text-rose-300 border-r border-slate-100 dark:border-slate-800 bg-rose-50/40 dark:bg-rose-950/20">
-                  GH&#8373; {formatCurrencyGhc(summary.totalExpenditure)}
+                  {formatCurrencyGhc(summary.totalExpenditure)}
                 </td>
                 <td className={`px-4 py-3.5 ${
                   summary.expenditureReturns < 0
                     ? 'text-rose-700 dark:text-rose-300 bg-rose-50/60 dark:bg-rose-950/30'
                     : 'text-emerald-800 dark:text-emerald-200 bg-emerald-100/50 dark:bg-emerald-900/30'
                 }`}>
-                  GH&#8373; {formatCurrencyGhc(summary.expenditureReturns)}
+                  {formatCurrencyGhc(summary.expenditureReturns)}
                 </td>
               </tr>
             </tbody>
@@ -568,7 +599,7 @@ export default function Basic9Expenditure({
                 Basic 9 Learners Payment Register
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Type exact amounts paid by each learner or use quick full-clearance buttons. Changes save automatically.
+                Type the amount a learner is paying in <strong>Paying Now</strong> and click <strong>Okay</strong> to add it to their Total Paid (against {formatCurrencyGhc(summary.targetFee)}).
               </p>
             </div>
 
@@ -600,14 +631,14 @@ export default function Basic9Expenditure({
             <table className="gradebook-table w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-100/80 dark:bg-slate-800/80 text-[11px] uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                  <th className="text-center w-12">S/N</th>
-                  <th className="w-28">Index No.</th>
-                  <th>Learner Name</th>
-                  <th className="text-right w-24">Fee (GH&#8373;)</th>
-                  <th className="text-right w-36">Total Paid (GH&#8373;)</th>
-                  <th className="text-right w-28">Left to Pay (GH&#8373;)</th>
-                  <th className="text-center w-24">Status</th>
-                  <th className="text-center w-28">Quick</th>
+                  <th className="text-center w-10 px-2 py-2.5">S/N</th>
+                  <th className="w-24 px-2 py-2.5">Index No.</th>
+                  <th className="px-2.5 py-2.5">Learner Name</th>
+                  <th className="text-right w-28 px-2 py-2.5">Total Paid</th>
+                  <th className="text-center w-40 px-2 py-2.5">Paying Now (+ Add)</th>
+                  <th className="text-right w-28 px-2 py-2.5">Left to Pay</th>
+                  <th className="text-center w-20 px-2 py-2.5">Status</th>
+                  <th className="text-center w-24 px-2 py-2.5">Quick</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
@@ -621,56 +652,106 @@ export default function Basic9Expenditure({
                   </tr>
                 ) : (
                   filteredRows.map((row, idx) => {
-                    const draftValue =
-                      paymentDrafts[row.financeKey] !== undefined
-                        ? paymentDrafts[row.financeKey]
-                        : row.amountPaid === 0
-                          ? ''
-                          : String(row.amountPaid);
+                    const addDraft = paymentAddDrafts[row.financeKey] ?? '';
+                    const isEditingTotal = editingTotalKey === row.financeKey;
 
                     return (
                       <tr
                         key={row.financeKey}
                         className="hover:bg-emerald-50/40 dark:hover:bg-slate-800/40 transition-colors"
                       >
-                        <td className="text-center font-bold text-slate-500">{row.sn || idx + 1}</td>
-                        <td className="font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                        <td className="text-center font-bold text-slate-500 px-2 py-2">{row.sn || idx + 1}</td>
+                        <td className="font-mono text-[11px] text-slate-600 dark:text-slate-400 px-2 py-2">
                           {row.indexNo || '-'}
                         </td>
-                        <td className="font-bold text-slate-900 dark:text-white">
+                        <td className="font-bold text-slate-900 dark:text-white px-2.5 py-2">
                           {row.name}
                         </td>
-                        <td className="text-right font-medium text-slate-600 dark:text-slate-300">
-                          {formatCurrencyGhc(row.targetFee)}
+                        <td className="text-right px-2 py-2">
+                          {isEditingTotal ? (
+                            <div className="inline-flex items-center gap-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={editingTotalValue}
+                                onChange={(e) => setEditingTotalValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveEditedTotal(row);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingTotalKey(null);
+                                  }
+                                }}
+                                className="w-16 px-1.5 py-1 text-right rounded border border-emerald-500 bg-white dark:bg-slate-900 text-xs font-bold outline-none"
+                                aria-label={`Edit total paid for ${row.name}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEditedTotal(row)}
+                                className="px-1.5 py-1 rounded bg-emerald-700 text-white text-[10px] font-bold"
+                                title="Save corrected total"
+                              >
+                                <Save className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center justify-end gap-1">
+                              <span className="font-black text-emerald-700 dark:text-emerald-300">
+                                {formatCurrencyGhc(row.amountPaid)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTotalKey(row.financeKey);
+                                  setEditingTotalValue(String(row.amountPaid));
+                                }}
+                                className="p-0.5 rounded text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300"
+                                title="Edit total paid manually"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </td>
-                        <td className="text-right">
-                          <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 focus-within:ring-2 focus-within:ring-emerald-500">
-                            <span className="text-[10px] font-bold text-slate-400 mr-1">GH&#8373;</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              placeholder="0.00"
-                              value={draftValue}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setPaymentDrafts((prev) => ({
-                                  ...prev,
-                                  [row.financeKey]: val
-                                }));
-                              }}
-                              onBlur={(e) => commitLearnerPayment(row.financeKey, e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.currentTarget.blur();
-                                }
-                              }}
-                              className="w-20 text-right bg-transparent text-xs font-bold text-emerald-700 dark:text-emerald-300 outline-none"
-                              aria-label={`Amount paid by ${row.name}`}
-                            />
+                        <td className="text-center px-2 py-2">
+                          <div className="inline-flex items-center gap-1">
+                            <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 py-1 focus-within:ring-2 focus-within:ring-emerald-500">
+                              <span className="text-[10px] font-bold text-slate-400 mr-1">+</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                                value={addDraft}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPaymentAddDrafts((prev) => ({
+                                    ...prev,
+                                    [row.financeKey]: val
+                                  }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddLearnerPayment(row);
+                                  }
+                                }}
+                                className="w-16 text-right bg-transparent text-xs font-bold text-slate-900 dark:text-white outline-none"
+                                aria-label={`New payment for ${row.name}`}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAddLearnerPayment(row)}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-extrabold shadow-sm transition-colors shrink-0"
+                            >
+                              Okay
+                            </button>
                           </div>
                         </td>
-                        <td className="text-right font-bold">
+                        <td className="text-right font-bold px-2 py-2">
                           <span
                             className={
                               row.amountLeft > 0
@@ -686,7 +767,7 @@ export default function Basic9Expenditure({
                             </span>
                           )}
                         </td>
-                        <td className="text-center">
+                        <td className="text-center px-2 py-2">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                               STATUS_BADGE_STYLES[row.status]
@@ -695,16 +776,16 @@ export default function Basic9Expenditure({
                             {row.status}
                           </span>
                         </td>
-                        <td className="text-center">
+                        <td className="text-center px-2 py-2">
                           <div className="inline-flex items-center gap-1">
                             {row.amountPaid < row.targetFee && (
                               <button
                                 type="button"
                                 onClick={() => handleQuickPayment(row, row.targetFee)}
                                 className="px-2 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800/70 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold flex items-center gap-0.5"
-                                title={`Mark full GH₵ ${formatCurrencyGhc(row.targetFee)} paid`}
+                                title={`Mark full ${formatCurrencyGhc(row.targetFee)} paid`}
                               >
-                                <CheckCircle2 className="w-3 h-3" /> {formatCurrencyGhc(row.targetFee)}
+                                <CheckCircle2 className="w-3 h-3" /> Full
                               </button>
                             )}
                             {row.amountPaid > 0 && (
@@ -726,19 +807,19 @@ export default function Basic9Expenditure({
               </tbody>
               <tfoot>
                 <tr className="bg-emerald-950/5 dark:bg-emerald-950/40 border-t-2 border-emerald-700/40 font-black text-xs">
-                  <td colSpan={3} className="px-4 py-3 text-right text-slate-900 dark:text-white uppercase">
+                  <td colSpan={3} className="px-3 py-3 text-right text-slate-900 dark:text-white uppercase">
                     All Basic 9 Learners Total ({summary.learnerRows.length})
                   </td>
-                  <td className="px-3 py-3 text-right text-slate-800 dark:text-slate-200">
-                    {formatCurrencyGhc(summary.totalExpected)}
+                  <td className="px-2 py-3 text-right text-emerald-700 dark:text-emerald-300">
+                    {formatCurrencyGhc(summary.totalCollected)}
                   </td>
-                  <td className="px-3 py-3 text-right text-emerald-700 dark:text-emerald-300">
-                    GH&#8373; {formatCurrencyGhc(summary.totalCollected)}
+                  <td className="px-2 py-3 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    Expected: {formatCurrencyGhc(summary.totalExpected)}
                   </td>
-                  <td className="px-3 py-3 text-right text-amber-700 dark:text-amber-300">
-                    GH&#8373; {formatCurrencyGhc(summary.totalLeftToPay)}
+                  <td className="px-2 py-3 text-right text-amber-700 dark:text-amber-300">
+                    {formatCurrencyGhc(summary.totalLeftToPay)}
                   </td>
-                  <td colSpan={2} className="px-3 py-3 text-center text-[11px] text-slate-600 dark:text-slate-300">
+                  <td colSpan={2} className="px-2 py-3 text-center text-[11px] text-slate-600 dark:text-slate-300">
                     {collectionRate}% Collected
                   </td>
                 </tr>
@@ -762,19 +843,19 @@ export default function Basic9Expenditure({
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-600 dark:text-slate-400 font-medium">All Total Amount Collected</span>
                 <span className="font-black text-emerald-700 dark:text-emerald-300">
-                  GH&#8373; {formatCurrencyGhc(summary.totalCollected)}
+                  {formatCurrencyGhc(summary.totalCollected)}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-600 dark:text-slate-400 font-medium">All Total Left to Pay</span>
                 <span className="font-bold text-amber-700 dark:text-amber-300">
-                  GH&#8373; {formatCurrencyGhc(summary.totalLeftToPay)}
+                  {formatCurrencyGhc(summary.totalLeftToPay)}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-600 dark:text-slate-400 font-medium">Total Expenditure ({summary.expenses.length} items)</span>
                 <span className="font-black text-rose-700 dark:text-rose-300">
-                  &minus; GH&#8373; {formatCurrencyGhc(summary.totalExpenditure)}
+                  &minus; {formatCurrencyGhc(summary.totalExpenditure)}
                 </span>
               </div>
               <div className="flex items-center justify-between pt-2">
@@ -791,7 +872,7 @@ export default function Basic9Expenditure({
                       : 'text-emerald-800 dark:text-emerald-300'
                   }`}
                 >
-                  GH&#8373; {formatCurrencyGhc(summary.expenditureReturns)}
+                  {formatCurrencyGhc(summary.expenditureReturns)}
                 </span>
               </div>
             </div>
@@ -799,7 +880,7 @@ export default function Basic9Expenditure({
             {summary.expenditureReturns < 0 && (
               <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 flex items-start gap-2 text-[11px] text-rose-800 dark:text-rose-300">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>Total expenditure currently exceeds cash collected by GH&#8373; {formatCurrencyGhc(Math.abs(summary.expenditureReturns))}.</span>
+                <span>Total expenditure currently exceeds cash collected by {formatCurrencyGhc(Math.abs(summary.expenditureReturns))}.</span>
               </div>
             )}
           </div>
@@ -883,7 +964,7 @@ export default function Basic9Expenditure({
                   Expenditure Register ({summary.expenses.length})
                 </span>
                 <span className="text-xs font-black text-rose-700 dark:text-rose-300">
-                  GH&#8373; {formatCurrencyGhc(summary.totalExpenditure)}
+                  {formatCurrencyGhc(summary.totalExpenditure)}
                 </span>
               </div>
 
@@ -909,7 +990,7 @@ export default function Basic9Expenditure({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs font-black text-rose-700 dark:text-rose-300">
-                          GH&#8373; {formatCurrencyGhc(exp.amount)}
+                          {formatCurrencyGhc(exp.amount)}
                         </span>
                         <button
                           type="button"
