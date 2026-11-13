@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   LayoutDashboard, Users, FileSpreadsheet, Award, FileText,
-  MessageSquare, Settings, LogOut, Globe, Sun, Moon, ShieldCheck, Wallet
+  MessageSquare, Settings, LogOut, Globe, Sun, Moon, ShieldCheck, Wallet,
+  Cloud, CloudOff, RefreshCw
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -31,7 +32,19 @@ import Basic9Expenditure, { PrintableBasic9Expenditure } from './components/Basi
 import { PrintableAmountPaidReceipt, PrintableGeneralReceipts } from './components/Basic9Receipts';
 import SmsCenter from './components/SmsCenter';
 import SchoolSettings from './components/SchoolSettings';
-import { isFirebaseConfigured, loadPortalFromFirestore, savePortalToFirestore } from './utils/firebase';
+import {
+  classifyFirebaseError,
+  fetchPortalSnapshot,
+  isFirebaseConfigured,
+  savePortalToFirestore,
+  subscribePortalFromFirestore
+} from './utils/firebase';
+import {
+  applyCloudDobBackfillIfNeeded,
+  decideInitialCloudResolution,
+  extractSyncablePortalState,
+  hasMeaningfulPortalData
+} from './utils/portalSync';
 
 const STORAGE_KEY = 'kpando_anglican_basic_school_live_v1';
 const LEGACY_DEMO_STORAGE_KEY = 'kpando_anglican_basic_school_v1';
@@ -123,9 +136,63 @@ export default function App() {
     };
   });
   const [migrations, setMigrations] = useState(() => saved?.migrations || {});
+  const [cloudSync, setCloudSync] = useState({
+    status: isFirebaseConfigured() ? 'checking' : 'offline',
+    lastSyncedAt: '',
+    message: ''
+  });
 
   // Print states: null | { type: 'broadsheet' } | { type: 'single-card', student } | { type: 'all-cards' }
   const [printJob, setPrintJob] = useState(null);
+
+  const cloudReadyToPushRef = useRef(false);
+  const skipNextCloudPushRef = useRef(false);
+  const shouldAutoPushLocalRef = useRef(false);
+  const latestStateRef = useRef(null);
+
+  latestStateRef.current = {
+    currentUser,
+    schoolProfile,
+    studentsByClass,
+    mockScores,
+    smsLogs,
+    inquiries,
+    basic9Finance,
+    gatewayConfig,
+    migrations
+  };
+
+  const applyRemoteCloudData = useCallback((cloudData) => {
+    if (!cloudData) return { dobBackfilled: false };
+    skipNextCloudPushRef.current = true;
+    if (cloudData.schoolProfile) setSchoolProfile(normalizeSchoolProfile(cloudData.schoolProfile));
+
+    let dobBackfilled = false;
+    if (cloudData.studentsByClass) {
+      const backfill = applyCloudDobBackfillIfNeeded(cloudData.studentsByClass, cloudData.migrations);
+      setStudentsByClass(backfill.studentsByClass);
+      setMigrations(backfill.migrations);
+      dobBackfilled = backfill.didUpdate;
+    } else if (cloudData.migrations) {
+      setMigrations(cloudData.migrations);
+    }
+
+    if (cloudData.mockScores) setMockScores(cloudData.mockScores);
+    if (cloudData.smsLogs) setSmsLogs(cloudData.smsLogs);
+    if (cloudData.inquiries) setInquiries(cloudData.inquiries);
+    if (cloudData.basic9Finance) setBasic9Finance(cloudData.basic9Finance);
+    if (cloudData.gatewaySettings) {
+      setGatewayConfig((prev) => ({
+        ...prev,
+        provider:
+          cloudData.gatewaySettings.provider === 'arkesel'
+            ? 'mnotify'
+            : (cloudData.gatewaySettings.provider || prev.provider),
+        senderId: cloudData.gatewaySettings.senderId ?? prev.senderId
+      }));
+    }
+    return { dobBackfilled };
+  }, []);
 
   // Sync theme to document root
   useEffect(() => {
@@ -133,33 +200,104 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [theme]);
 
-  // Optional Firebase Firestore cloud load on mount when configured
+  // Hydrate from Firebase Firestore on mount & subscribe for live cross-device updates
   useEffect(() => {
-    if (!isFirebaseConfigured()) return;
-    loadPortalFromFirestore()
-      .then((cloudData) => {
-        if (!cloudData) return;
-        if (cloudData.schoolProfile) setSchoolProfile(normalizeSchoolProfile(cloudData.schoolProfile));
-        if (cloudData.studentsByClass) {
-          if (!cloudData.migrations?.basic9DobV1 && cloudData.studentsByClass['Basic 9']?.length > 0) {
-            const { studentsByClass: patchedCloud } = applyVerifiedBasic9Dobs(cloudData.studentsByClass);
-            setStudentsByClass(patchedCloud);
-            setMigrations((prev) => ({ ...prev, ...(cloudData.migrations || {}), basic9DobV1: true }));
-          } else {
-            setStudentsByClass(cloudData.studentsByClass);
-          }
-        }
-        if (cloudData.mockScores) setMockScores(cloudData.mockScores);
-        if (cloudData.smsLogs) setSmsLogs(cloudData.smsLogs);
-        if (cloudData.inquiries) setInquiries(cloudData.inquiries);
-        if (cloudData.basic9Finance) setBasic9Finance(cloudData.basic9Finance);
-      })
-      .catch(() => {
-        // Offline or unauthenticated read: keep local cache
+    if (!isFirebaseConfigured()) {
+      setCloudSync({
+        status: 'offline',
+        lastSyncedAt: '',
+        message: 'Firebase config is missing.'
       });
-  }, []);
+      return undefined;
+    }
 
-  // Persist portal data to localStorage (and Firestore when configured & signed in)
+    let cancelled = false;
+    let unsubscribe = () => {};
+
+    fetchPortalSnapshot()
+      .then(async ({ exists, data }) => {
+        if (cancelled) return;
+        const resolution = decideInitialCloudResolution({
+          localState: latestStateRef.current,
+          cloudExists: exists,
+          cloudData: data
+        });
+
+        if (resolution === 'apply-cloud') {
+          const { dobBackfilled } = applyRemoteCloudData(data);
+          cloudReadyToPushRef.current = true;
+          setCloudSync({
+            status: 'connected',
+            lastSyncedAt: data?.updatedAt || new Date().toISOString(),
+            message: 'Synced with Firebase Cloud Firestore'
+          });
+          if (dobBackfilled && latestStateRef.current?.currentUser) {
+            shouldAutoPushLocalRef.current = true;
+          }
+        } else if (resolution === 'push-local') {
+          cloudReadyToPushRef.current = true;
+          if (latestStateRef.current?.currentUser) {
+            setCloudSync((prev) => ({ ...prev, status: 'syncing' }));
+            await savePortalToFirestore(extractSyncablePortalState(latestStateRef.current));
+            if (!cancelled) {
+              setCloudSync({
+                status: 'connected',
+                lastSyncedAt: new Date().toISOString(),
+                message: 'Uploaded device records to Firebase Cloud Firestore'
+              });
+            }
+          } else {
+            shouldAutoPushLocalRef.current = true;
+            setCloudSync({
+              status: 'connected',
+              lastSyncedAt: '',
+              message: 'Ready to sync device records once signed in'
+            });
+          }
+        } else {
+          cloudReadyToPushRef.current = true;
+          setCloudSync({
+            status: 'connected',
+            lastSyncedAt: data?.updatedAt || '',
+            message: 'Connected to Firebase Cloud Firestore'
+          });
+        }
+
+        unsubscribe = subscribePortalFromFirestore(
+          ({ exists: snapExists, data: snapData }) => {
+            if (cancelled || !snapExists || !hasMeaningfulPortalData(snapData)) return;
+            applyRemoteCloudData(snapData);
+            setCloudSync({
+              status: 'connected',
+              lastSyncedAt: snapData?.updatedAt || new Date().toISOString(),
+              message: 'Live synced from Firebase'
+            });
+          },
+          (subErr) => {
+            if (cancelled) return;
+            const diag = classifyFirebaseError(subErr);
+            setCloudSync({ status: diag.kind, lastSyncedAt: '', message: diag.message });
+          }
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        cloudReadyToPushRef.current = false;
+        const diag = classifyFirebaseError(err);
+        setCloudSync({
+          status: diag.kind,
+          lastSyncedAt: '',
+          message: diag.message
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [applyRemoteCloudData]);
+
+  // Persist offline browser cache & debounce automatic pushes to Firebase Cloud Firestore
   useEffect(() => {
     const payload = {
       theme,
@@ -178,17 +316,50 @@ export default function App() {
     } catch (e) {
       // Ignore quota errors
     }
-    if (isFirebaseConfigured() && currentUser) {
-      savePortalToFirestore({
-        schoolProfile,
-        studentsByClass,
-        mockScores,
-        smsLogs,
-        inquiries,
-        basic9Finance,
-        migrations
-      }).catch(() => {});
+
+    if (!isFirebaseConfigured() || !currentUser || !cloudReadyToPushRef.current) {
+      return undefined;
     }
+
+    if (skipNextCloudPushRef.current && !shouldAutoPushLocalRef.current) {
+      skipNextCloudPushRef.current = false;
+      return undefined;
+    }
+    skipNextCloudPushRef.current = false;
+    shouldAutoPushLocalRef.current = false;
+
+    const timer = setTimeout(() => {
+      setCloudSync((prev) => ({ ...prev, status: 'syncing' }));
+      savePortalToFirestore(
+        extractSyncablePortalState({
+          schoolProfile,
+          studentsByClass,
+          mockScores,
+          smsLogs,
+          inquiries,
+          basic9Finance,
+          migrations,
+          gatewayConfig
+        })
+      )
+        .then(() => {
+          setCloudSync({
+            status: 'connected',
+            lastSyncedAt: new Date().toISOString(),
+            message: 'All records synced to Firebase Cloud Firestore'
+          });
+        })
+        .catch((err) => {
+          const diag = classifyFirebaseError(err);
+          setCloudSync({
+            status: diag.kind,
+            lastSyncedAt: '',
+            message: diag.message
+          });
+        });
+    }, 350);
+
+    return () => clearTimeout(timer);
   }, [theme, currentUser, schoolProfile, studentsByClass, mockScores, smsLogs, inquiries, basic9Finance, gatewayConfig, migrations]);
 
   // Auto-open admin portal if session already authenticated on reload? Keep public website first with instant switch, or restore if desired.
@@ -289,11 +460,101 @@ export default function App() {
   };
 
   const handleSubmitInquiry = (newInquiry) => {
-    setInquiries((prev) => [newInquiry, ...prev]);
+    const nextInquiries = [newInquiry, ...(latestStateRef.current.inquiries || [])];
+    setInquiries(nextInquiries);
+    if (isFirebaseConfigured() && cloudReadyToPushRef.current) {
+      savePortalToFirestore(
+        extractSyncablePortalState({
+          ...latestStateRef.current,
+          inquiries: nextInquiries
+        })
+      )
+        .then(() => {
+          setCloudSync((prev) => ({
+            ...prev,
+            status: 'connected',
+            lastSyncedAt: new Date().toISOString()
+          }));
+        })
+        .catch(() => {});
+    }
   };
 
   const handleUpdateInquiryStatus = (id, status) => {
     setInquiries((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
+  };
+
+  const handlePushToFirebase = async () => {
+    if (!isFirebaseConfigured()) {
+      const msg = 'Firebase config is missing.';
+      toast.error(msg);
+      return { ok: false };
+    }
+    setCloudSync((prev) => ({ ...prev, status: 'syncing', message: 'Uploading device data to Firebase...' }));
+    try {
+      await savePortalToFirestore(extractSyncablePortalState(latestStateRef.current));
+      cloudReadyToPushRef.current = true;
+      setCloudSync({
+        status: 'connected',
+        lastSyncedAt: new Date().toISOString(),
+        message: 'All device records pushed to Firebase Cloud Firestore'
+      });
+      toast.success('Device data pushed to Firebase Cloud!');
+      return { ok: true };
+    } catch (err) {
+      const diag = classifyFirebaseError(err);
+      setCloudSync({
+        status: diag.kind,
+        lastSyncedAt: '',
+        message: diag.message
+      });
+      toast.error(diag.message);
+      return { ok: false, error: diag };
+    }
+  };
+
+  const handlePullFromFirebase = async () => {
+    if (!isFirebaseConfigured()) {
+      const msg = 'Firebase config is missing.';
+      toast.error(msg);
+      return { ok: false };
+    }
+    setCloudSync((prev) => ({ ...prev, status: 'syncing', message: 'Checking Firebase Cloud Firestore...' }));
+    try {
+      const { exists, data } = await fetchPortalSnapshot();
+      if (exists && hasMeaningfulPortalData(data)) {
+        const { dobBackfilled } = applyRemoteCloudData(data);
+        cloudReadyToPushRef.current = true;
+        setCloudSync({
+          status: 'connected',
+          lastSyncedAt: data?.updatedAt || new Date().toISOString(),
+          message: 'Pulled latest school data from Firebase'
+        });
+        if (dobBackfilled && latestStateRef.current?.currentUser) {
+          shouldAutoPushLocalRef.current = true;
+        }
+        toast.success('Latest school data pulled from Firebase!');
+        return { ok: true, pulled: true };
+      }
+      cloudReadyToPushRef.current = true;
+      setCloudSync({
+        status: 'connected',
+        lastSyncedAt: data?.updatedAt || '',
+        message: 'Cloud database is empty. Use Push This Device to upload local records.'
+      });
+      toast('Firebase Cloud has no saved learner records yet. Push from your main device first.');
+      return { ok: true, pulled: false };
+    } catch (err) {
+      const diag = classifyFirebaseError(err);
+      cloudReadyToPushRef.current = false;
+      setCloudSync({
+        status: diag.kind,
+        lastSyncedAt: '',
+        message: diag.message
+      });
+      toast.error(diag.message);
+      return { ok: false, error: diag };
+    }
   };
 
   const handleClearAllData = () => {
@@ -451,6 +712,35 @@ export default function App() {
                 </select>
 
                 <button
+                  onClick={() => setActiveTab('settings')}
+                  title={cloudSync.message}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                    cloudSync.status === 'connected'
+                      ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100/80'
+                      : cloudSync.status === 'syncing'
+                        ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300'
+                        : 'border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  {cloudSync.status === 'syncing' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : cloudSync.status === 'connected' ? (
+                    <Cloud className="w-3.5 h-3.5" />
+                  ) : (
+                    <CloudOff className="w-3.5 h-3.5" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {cloudSync.status === 'syncing'
+                      ? 'Syncing...'
+                      : cloudSync.status === 'connected'
+                        ? 'Cloud Synced'
+                        : cloudSync.status === 'needs-setup'
+                          ? 'Firebase Setup Needed'
+                          : 'Cloud Error'}
+                  </span>
+                </button>
+
+                <button
                   onClick={() => setViewMode('website')}
                   className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold flex items-center gap-1.5"
                 >
@@ -586,6 +876,9 @@ export default function App() {
                 schoolProfile={schoolProfile}
                 onSaveProfile={setSchoolProfile}
                 onResetDemoData={handleClearAllData}
+                cloudSync={cloudSync}
+                onPushToFirebase={handlePushToFirebase}
+                onPullFromFirebase={handlePullFromFirebase}
               />
             )}
           </main>
