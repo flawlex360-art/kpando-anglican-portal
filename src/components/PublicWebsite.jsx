@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   GraduationCap, ShieldCheck, Calendar, MapPin, Phone, Mail,
   BookOpen, Award, Users, CheckCircle2, ArrowRight, Bell,
-  Send, Sun, Moon, Menu, X, Sparkles, Clock,
+  Send, Sun, Moon, Menu, X, Clock,
   ChevronLeft, ChevronRight, Pause, Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -241,10 +241,6 @@ export default function PublicWebsite({
           <div className="absolute inset-x-0 bottom-0 z-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-5 pt-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
               <div className="space-y-2.5 max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-emerald-900/90 border border-white/25 text-[11px] font-bold uppercase tracking-wider text-amber-300 shadow">
-                  <Sparkles className="w-3 h-3 shrink-0" />
-                  <span>{schoolProfile.district} • {schoolProfile.academicYear}</span>
-                </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-white drop-shadow-lg">
                   Shaping Confident Scholars &amp; BECE Distinction Leaders
                 </h1>
