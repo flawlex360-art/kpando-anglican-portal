@@ -2,6 +2,40 @@ import React, { useState } from 'react';
 import { UserPlus, Trash2, Edit2, Check, X, Search, Download, Upload, Phone, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const DEFAULT_INDEX_PREFIX = '0703070';
+
+function getNextDefaultIndexNo(existingStudents = [], extraUsed = new Set()) {
+  const used = new Set(extraUsed);
+  let maxSeq = 0;
+
+  existingStudents.forEach((s) => {
+    const code = String(s?.indexNo || '').trim();
+    if (!code) return;
+    used.add(code);
+    const match = code.match(/^0703070(\d{3,})$/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (Number.isFinite(n) && n > maxSeq) maxSeq = n;
+    }
+  });
+
+  used.forEach((code) => {
+    const match = String(code).match(/^0703070(\d{3,})$/);
+    if (match) {
+      const n = parseInt(match[1], 10);
+      if (Number.isFinite(n) && n > maxSeq) maxSeq = n;
+    }
+  });
+
+  let seq = maxSeq + 1;
+  let candidate = `${DEFAULT_INDEX_PREFIX}${String(seq).padStart(3, '0')}`;
+  while (used.has(candidate)) {
+    seq += 1;
+    candidate = `${DEFAULT_INDEX_PREFIX}${String(seq).padStart(3, '0')}`;
+  }
+  return candidate;
+}
+
 export default function Roster({ activeClass, students, onSaveRoster }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [newLearner, setNewLearner] = useState({
@@ -34,7 +68,7 @@ export default function Roster({ activeClass, students, onSaveRoster }) {
       return;
     }
 
-    const nextIndex = newLearner.indexNo.trim() || `0412026${String(students.length + 1).padStart(3, '0')}`;
+    const nextIndex = newLearner.indexNo.trim() || getNextDefaultIndexNo(students);
     const rawList = [
       ...students,
       {
@@ -115,6 +149,7 @@ export default function Roster({ activeClass, students, onSaveRoster }) {
         return;
       }
       const imported = [];
+      const extraUsed = new Set();
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',').map((c) => c.replace(/^"|"$/g, '').trim());
         if (!cols[2] && !cols[0]) continue;
@@ -122,9 +157,11 @@ export default function Roster({ activeClass, students, onSaveRoster }) {
         const hasSnCol = cols.length >= 6 || /^\d+$/.test(cols[0]) && cols[0].length <= 3;
         const name = (hasSnCol ? cols[2] : cols[1]) || cols[0];
         if (!name) continue;
+        const rawIndex = (hasSnCol ? cols[1] : cols[0]) || getNextDefaultIndexNo(students, extraUsed);
+        extraUsed.add(rawIndex);
         imported.push({
           sn: 9999999 + i,
-          indexNo: (hasSnCol ? cols[1] : cols[0]) || `0412026${String(i).padStart(3, '0')}`,
+          indexNo: rawIndex,
           name: name.toUpperCase(),
           gender: ((hasSnCol ? cols[3] : cols[2]) || 'U').toUpperCase().slice(0, 1),
           parentName: (hasSnCol ? cols[4] : cols[3]) || 'Parent/Guardian',
@@ -156,6 +193,8 @@ export default function Roster({ activeClass, students, onSaveRoster }) {
       (s.parentPhone || '').includes(q)
     );
   });
+
+  const nextDefaultIndex = getNextDefaultIndexNo(students);
 
   return (
     <div className="space-y-6">
@@ -190,7 +229,8 @@ export default function Roster({ activeClass, students, onSaveRoster }) {
             type="text"
             value={newLearner.indexNo}
             onChange={(e) => setNewLearner({ ...newLearner, indexNo: e.target.value })}
-            placeholder="Index No. (Optional)"
+            placeholder={`Index No. (${nextDefaultIndex})`}
+            title={`Leave blank to auto-assign ${nextDefaultIndex}`}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none focus:ring-2 focus:ring-emerald-600"
           />
           <input
