@@ -1,7 +1,7 @@
 /**
  * Ghanaian Parent SMS Service
  * Supports Simulation / Sandbox Mode (default when no API key is configured)
- * as well as live dispatch via mNotify, Arkesel, or Hubtel.
+ * as well as live dispatch via mNotify or Hubtel.
  */
 
 export function formatGhanaPhone(phone) {
@@ -38,7 +38,7 @@ export function interpolateSmsTemplate(template, context) {
 }
 
 /**
- * Checks whether Vercel environment variables (ARKESEL_API_KEY & SMS_DISPATCH_SECRET)
+ * Checks whether Vercel environment variables (MNOTIFY_API_KEY & SMS_DISPATCH_SECRET)
  * are configured on /api/send-sms without exposing any secrets.
  */
 export async function checkSmsServerStatus() {
@@ -122,8 +122,8 @@ export async function dispatchParentSmsBatch({
       };
     }
 
-    // Use Vercel /api/send-sms proxy first for Arkesel & mNotify to avoid browser CORS blocks
-    if (provider === 'arkesel' || provider === 'mnotify') {
+    // Use Vercel /api/send-sms proxy first for mNotify to avoid browser CORS blocks
+    if (provider === 'mnotify') {
       try {
         const proxyRes = await fetch('/api/send-sms', {
           method: 'POST',
@@ -181,7 +181,10 @@ export async function dispatchParentSmsBatch({
         if (provider === 'mnotify') {
           const res = await fetch(`https://api.mnotify.com/api/sms/quick?key=${encodeURIComponent(apiKey)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
             body: JSON.stringify({
               recipient: [item.phone],
               sender: fallbackSenderId,
@@ -190,29 +193,14 @@ export async function dispatchParentSmsBatch({
               schedule_date: ''
             })
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          deliveredCount++;
-        } else if (provider === 'arkesel') {
-          const res = await fetch('https://sms.arkesel.com/api/v2/sms/send', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'api-key': apiKey
-            },
-            body: JSON.stringify({
-              sender: fallbackSenderId,
-              message: item.message,
-              recipients: [item.phone]
-            })
-          });
           let data = {};
           try {
             data = await res.json();
           } catch {
             data = {};
           }
-          if (!res.ok || (data.status && data.status !== 'success')) {
-            throw new Error(data.message || `HTTP ${res.status}`);
+          if (!res.ok || (data.status && String(data.status).toLowerCase() !== 'success')) {
+            throw new Error(data.message || data.error || `HTTP ${res.status}`);
           }
           deliveredCount++;
         } else if (provider === 'hubtel') {

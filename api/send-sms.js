@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
 
 /**
- * Vercel Serverless Function: Ghanaian SMS Gateway Proxy (Arkesel & mNotify)
- * Keeps ARKESEL_API_KEY strictly on Vercel (never committed to GitHub or client JS)
+ * Vercel Serverless Function: mNotify Ghana SMS Gateway Proxy
+ * Keeps MNOTIFY_API_KEY strictly on Vercel (never committed to GitHub or client JS)
  * and avoids browser CORS restrictions when dispatching SMS from any device.
  */
+
+const MNOTIFY_CONCURRENCY = 5;
 
 function normalizeRecipients(messages) {
   if (!Array.isArray(messages)) return [];
@@ -23,12 +25,57 @@ function constantTimeMatch(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+async function sendMnotifyBatch(phones, text, sender, apiKey) {
+  try {
+    const upstream = await fetch(
+      `https://api.mnotify.com/api/sms/quick?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          recipient: phones,
+          sender,
+          message: text,
+          is_schedule: false,
+          schedule_date: ''
+        })
+      }
+    );
+
+    let data = {};
+    try {
+      data = await upstream.json();
+    } catch {
+      data = {};
+    }
+
+    const ok = upstream.ok && (!data.status || String(data.status).toLowerCase() === 'success');
+    if (ok) {
+      return { deliveredCount: phones.length, failures: [] };
+    }
+    const reason = data.message || data.error || `mNotify HTTP ${upstream.status}`;
+    return {
+      deliveredCount: 0,
+      failures: phones.map((phone) => ({ phone, reason }))
+    };
+  } catch (err) {
+    const reason = err?.message || 'Network error reaching mNotify';
+    return {
+      deliveredCount: 0,
+      failures: phones.map((phone) => ({ phone, reason }))
+    };
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
-      serverKeyConfigured: Boolean(String(process.env.ARKESEL_API_KEY || '').trim()),
+      serverKeyConfigured: Boolean(String(process.env.MNOTIFY_API_KEY || '').trim()),
       pinConfigured: Boolean(String(process.env.SMS_DISPATCH_SECRET || '').trim()),
-      defaultSenderId: String(process.env.ARKESEL_SENDER_ID || '').trim().slice(0, 11)
+      defaultSenderId: String(process.env.MNOTIFY_SENDER_ID || '').trim().slice(0, 11)
     });
   }
 
@@ -37,14 +84,18 @@ export default async function handler(req, res) {
   }
 
   const {
-    provider = 'arkesel',
+    provider = 'mnotify',
     senderId = '',
     messages = [],
     apiKey = '',
     dispatchSecret = ''
   } = req.body || {};
 
-  const cleanSender = String(senderId || process.env.ARKESEL_SENDER_ID || '').trim();
+  if (provider !== 'mnotify') {
+    return res.status(400).json({ error: `Unsupported server proxy provider: ${provider}` });
+  }
+
+  const cleanSender = String(senderId || process.env.MNOTIFY_SENDER_ID || '').trim();
   if (cleanSender.length < 3 || cleanSender.length > 11) {
     return res.status(400).json({
       error: 'Sender ID must be between 3 and 11 characters.'
@@ -58,14 +109,14 @@ export default async function handler(req, res) {
     });
   }
 
-  // Prefer server-side ARKESEL_API_KEY (with Dispatch PIN verification) or browser-supplied override key
+  // Prefer server-side MNOTIFY_API_KEY (with Dispatch PIN verification) or browser-supplied override key
   let effectiveKey = String(apiKey || '').trim();
-  if (!effectiveKey && provider === 'arkesel' && process.env.ARKESEL_API_KEY) {
+  if (!effectiveKey && process.env.MNOTIFY_API_KEY) {
     const expectedSecret = String(process.env.SMS_DISPATCH_SECRET || '').trim();
     if (!expectedSecret) {
       return res.status(400).json({
         error:
-          'ARKESEL_API_KEY is present on Vercel, but SMS_DISPATCH_SECRET is not set. Add SMS_DISPATCH_SECRET in Vercel Environment Variables to unlock multi-device SMS securely.'
+          'MNOTIFY_API_KEY is present on Vercel, but SMS_DISPATCH_SECRET is not set. Add SMS_DISPATCH_SECRET in Vercel Environment Variables to unlock multi-device SMS securely.'
       });
     }
     if (!constantTimeMatch(dispatchSecret.trim(), expectedSecret)) {
@@ -73,114 +124,40 @@ export default async function handler(req, res) {
         error: 'Invalid or missing Server Dispatch PIN. Check your PIN in Configure Gateway.'
       });
     }
-    effectiveKey = String(process.env.ARKESEL_API_KEY).trim();
+    effectiveKey = String(process.env.MNOTIFY_API_KEY).trim();
   }
 
   if (!effectiveKey) {
     return res.status(400).json({
-      error: 'Missing SMS gateway credentials. Configure ARKESEL_API_KEY + SMS_DISPATCH_SECRET on Vercel or enter a manual API key.'
+      error: 'Missing SMS gateway credentials. Configure MNOTIFY_API_KEY + SMS_DISPATCH_SECRET on Vercel or enter a manual API key.'
     });
   }
 
-  if (provider === 'arkesel') {
-    const groupedByText = new Map();
-    for (const item of validMessages) {
-      if (!groupedByText.has(item.message)) groupedByText.set(item.message, []);
-      groupedByText.get(item.message).push(item.phone);
-    }
-
-    let deliveredCount = 0;
-    const failures = [];
-
-    for (const [text, phones] of groupedByText.entries()) {
-      try {
-        const upstream = await fetch('https://sms.arkesel.com/api/v2/sms/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': effectiveKey
-          },
-          body: JSON.stringify({
-            sender: cleanSender,
-            message: text,
-            recipients: phones
-          })
-        });
-
-        let data = {};
-        try {
-          data = await upstream.json();
-        } catch {
-          data = {};
-        }
-
-        const ok = upstream.ok && (!data.status || data.status === 'success');
-        if (ok) {
-          deliveredCount += phones.length;
-        } else {
-          const reason = data.message || data.error || `Arkesel HTTP ${upstream.status}`;
-          for (const phone of phones) {
-            failures.push({ phone, reason });
-          }
-        }
-      } catch (err) {
-        for (const phone of phones) {
-          failures.push({ phone, reason: err?.message || 'Network error reaching Arkesel' });
-        }
-      }
-    }
-
-    return res.status(200).json({
-      provider: 'arkesel',
-      deliveredCount,
-      failedCount: failures.length,
-      failures
-    });
+  const groupedByText = new Map();
+  for (const item of validMessages) {
+    if (!groupedByText.has(item.message)) groupedByText.set(item.message, []);
+    groupedByText.get(item.message).push(item.phone);
   }
 
-  if (provider === 'mnotify') {
-    let deliveredCount = 0;
-    const failures = [];
+  const batches = Array.from(groupedByText.entries());
+  let deliveredCount = 0;
+  const failures = [];
 
-    for (const item of validMessages) {
-      try {
-        const upstream = await fetch(
-          `https://api.mnotify.com/api/sms/quick?key=${encodeURIComponent(effectiveKey)}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipient: [item.phone],
-              sender: cleanSender,
-              message: item.message,
-              is_schedule: false,
-              schedule_date: ''
-            })
-          }
-        );
-        let data = {};
-        try {
-          data = await upstream.json();
-        } catch {
-          data = {};
-        }
-        if (upstream.ok) {
-          deliveredCount++;
-        } else {
-          failures.push({ phone: item.phone, reason: data.message || `mNotify HTTP ${upstream.status}` });
-        }
-      } catch (err) {
-        failures.push({ phone: item.phone, reason: err?.message || 'Network error reaching mNotify' });
-      }
+  for (let i = 0; i < batches.length; i += MNOTIFY_CONCURRENCY) {
+    const slice = batches.slice(i, i + MNOTIFY_CONCURRENCY);
+    const results = await Promise.all(
+      slice.map(([text, phones]) => sendMnotifyBatch(phones, text, cleanSender, effectiveKey))
+    );
+    for (const r of results) {
+      deliveredCount += r.deliveredCount;
+      failures.push(...r.failures);
     }
-
-    return res.status(200).json({
-      provider: 'mnotify',
-      deliveredCount,
-      failedCount: failures.length,
-      failures
-    });
   }
 
-  return res.status(400).json({ error: `Unsupported server proxy provider: ${provider}` });
+  return res.status(200).json({
+    provider: 'mnotify',
+    deliveredCount,
+    failedCount: failures.length,
+    failures
+  });
 }

@@ -182,8 +182,8 @@ export default function SmsCenter({
               }`}
             >
               {serverStatus.pinConfigured
-                ? 'Vercel API key & PIN are active. Staff on any phone or laptop only need to enter the Server Dispatch PIN below — leave Manual API Key blank.'
-                : 'Vercel found ARKESEL_API_KEY, but SMS_DISPATCH_SECRET is not set yet. Add SMS_DISPATCH_SECRET in Vercel Settings -> Environment Variables and redeploy.'}
+                ? 'Vercel mNotify API key & PIN are active. Staff on any phone or laptop only need to enter the Server Dispatch PIN below — leave Manual API Key blank.'
+                : 'Vercel found MNOTIFY_API_KEY, but SMS_DISPATCH_SECRET is not set yet. Add SMS_DISPATCH_SECRET in Vercel Settings -> Environment Variables and redeploy.'}
             </div>
           )}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -196,7 +196,6 @@ export default function SmsCenter({
               >
                 <option value="simulation">Simulation / Sandbox Mode (Free)</option>
                 <option value="mnotify">mNotify Ghana SMS API</option>
-                <option value="arkesel">Arkesel Ghana SMS API</option>
                 <option value="hubtel">Hubtel SMS API</option>
               </select>
             </div>

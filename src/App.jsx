@@ -108,9 +108,14 @@ export default function App() {
   const [basic9Finance, setBasic9Finance] = useState(
     () => saved?.basic9Finance || INITIAL_BASIC9_FINANCE
   );
-  const [gatewayConfig, setGatewayConfig] = useState(
-    () => saved?.gatewayConfig || { provider: 'simulation', senderId: '', apiKey: '', dispatchSecret: '' }
-  );
+  const [gatewayConfig, setGatewayConfig] = useState(() => {
+    const gc = saved?.gatewayConfig;
+    if (!gc) return { provider: 'simulation', senderId: '', apiKey: '', dispatchSecret: '' };
+    return {
+      ...gc,
+      provider: gc.provider === 'arkesel' ? 'mnotify' : (gc.provider || 'simulation')
+    };
+  });
 
   // Print states: null | { type: 'broadsheet' } | { type: 'single-card', student } | { type: 'all-cards' }
   const [printJob, setPrintJob] = useState(null);
