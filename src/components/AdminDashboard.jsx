@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Users, Award, MessageSquare, FileSpreadsheet, Printer, TrendingUp,
-  Bell, CheckCircle2, AlertTriangle, Calendar, ArrowUpRight, Inbox
+  Bell, CheckCircle2, AlertTriangle, Calendar, ArrowUpRight, Inbox, Wallet
 } from 'lucide-react';
 
 export default function AdminDashboard({
@@ -61,6 +61,12 @@ export default function AdminDashboard({
               className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-colors"
             >
               <Printer className="w-4 h-4" /> A4 Analysis &amp; Print
+            </button>
+            <button
+              onClick={() => onNavigateTab('expenditure')}
+              className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 text-xs font-extrabold flex items-center gap-1.5 transition-colors shadow-sm"
+            >
+              <Wallet className="w-4 h-4" /> B9 Expenditure
             </button>
             <button
               onClick={() => onNavigateTab('sms')}

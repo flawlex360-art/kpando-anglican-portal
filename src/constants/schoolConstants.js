@@ -257,3 +257,9 @@ export const INITIAL_INQUIRIES = [
     status: "Reviewed"
   }
 ];
+
+export const INITIAL_BASIC9_FINANCE = {
+  feePerLearner: 595,
+  paymentsByLearner: {},
+  expenses: []
+};

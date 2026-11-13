@@ -223,3 +223,69 @@ export function generateMockAdvisory(studentName, aggregate, mathScore, scienceS
   }
   return `${firstName} achieved Aggregate ${aggregate} in this mock series. Consistent evening study, essay practice, and completing all take-home assignments will significantly boost their final BECE grade.`;
 }
+
+export const BASIC9_DEFAULT_FEE = 595;
+
+export function getLearnerFinanceKey(student) {
+  return String(student?.indexNo || student?.name || `sn-${student?.sn || ''}`).trim();
+}
+
+export function formatCurrencyGhc(value) {
+  const num = Number(value) || 0;
+  return `GH₵ ${num.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Computes Basic 9 learner collections against target fee (GHC 595.00),
+ * amount left to pay per learner, total collected, total expenditure, and expenditure returns.
+ */
+export function computeBasic9FinanceSummary(students = [], financeData = {}) {
+  const rawFee = Number(financeData?.feePerLearner);
+  const targetFee = Number.isFinite(rawFee) && rawFee >= 0 ? Math.round(rawFee * 100) / 100 : BASIC9_DEFAULT_FEE;
+  const paymentsByLearner = financeData?.paymentsByLearner || {};
+  const expenses = Array.isArray(financeData?.expenses) ? financeData.expenses : [];
+
+  const learnerRows = students.map((student) => {
+    const key = getLearnerFinanceKey(student);
+    const paidRaw = paymentsByLearner[key] ?? paymentsByLearner[student.name] ?? 0;
+    const amountPaid = Math.max(0, Math.round((parseFloat(paidRaw) || 0) * 100) / 100);
+    const amountLeft = Math.max(0, Math.round((targetFee - amountPaid) * 100) / 100);
+    const overpaid = amountPaid > targetFee ? Math.round((amountPaid - targetFee) * 100) / 100 : 0;
+
+    let status = 'Unpaid';
+    if (amountPaid >= targetFee) status = 'Cleared';
+    else if (amountPaid > 0) status = 'Partial';
+
+    return {
+      ...student,
+      financeKey: key,
+      targetFee,
+      amountPaid,
+      amountLeft,
+      overpaid,
+      status
+    };
+  });
+
+  const totalExpected = Math.round(learnerRows.length * targetFee * 100) / 100;
+  const totalCollected = Math.round(learnerRows.reduce((sum, r) => sum + r.amountPaid, 0) * 100) / 100;
+  const totalLeftToPay = Math.round(learnerRows.reduce((sum, r) => sum + r.amountLeft, 0) * 100) / 100;
+  const totalExpenditure = Math.round(
+    expenses.reduce((sum, e) => sum + Math.max(0, parseFloat(e?.amount) || 0), 0) * 100
+  ) / 100;
+  const expenditureReturns = Math.round((totalCollected - totalExpenditure) * 100) / 100;
+
+  return {
+    targetFee,
+    learnerRows,
+    expenses,
+    totalExpected,
+    totalCollected,
+    totalLeftToPay,
+    totalExpenditure,
+    expenditureReturns,
+    clearedCount: learnerRows.filter((r) => r.status === 'Cleared').length,
+    partialCount: learnerRows.filter((r) => r.status === 'Partial').length,
+    unpaidCount: learnerRows.filter((r) => r.status === 'Unpaid').length
+  };
+}

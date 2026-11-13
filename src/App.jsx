@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   LayoutDashboard, Users, FileSpreadsheet, Award, FileText,
-  MessageSquare, Settings, LogOut, Globe, Sun, Moon, ShieldCheck
+  MessageSquare, Settings, LogOut, Globe, Sun, Moon, ShieldCheck, Wallet
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -13,7 +13,8 @@ import {
   INITIAL_STUDENTS,
   INITIAL_MOCK_SCORES,
   INITIAL_SMS_LOGS,
-  INITIAL_INQUIRIES
+  INITIAL_INQUIRIES,
+  INITIAL_BASIC9_FINANCE
 } from './constants/schoolConstants';
 import { computeMockClassResults } from './utils/calculations';
 
@@ -25,6 +26,7 @@ import MockGradebook from './components/MockGradebook';
 import MockAnalysisBroadsheet, { PrintableA4Broadsheet } from './components/MockAnalysisBroadsheet';
 import ReportCardManager from './components/ReportCardManager';
 import MockReportCard from './components/MockReportCard';
+import Basic9Expenditure, { PrintableBasic9Expenditure } from './components/Basic9Expenditure';
 import SmsCenter from './components/SmsCenter';
 import SchoolSettings from './components/SchoolSettings';
 import { isFirebaseConfigured, loadPortalFromFirestore, savePortalToFirestore } from './utils/firebase';
@@ -67,6 +69,7 @@ const ADMIN_TABS = [
   { id: 'gradebook', label: 'Mock Marks (100%)', icon: FileSpreadsheet },
   { id: 'broadsheet', label: 'Analysis & A4 Sheet', icon: Award },
   { id: 'reports', label: 'Report Cards', icon: FileText },
+  { id: 'expenditure', label: 'Basic 9 Expenditure', icon: Wallet },
   { id: 'sms', label: 'Parent SMS Center', icon: MessageSquare },
   { id: 'settings', label: 'School Settings', icon: Settings }
 ];
@@ -87,6 +90,9 @@ export default function App() {
   const [mockScores, setMockScores] = useState(() => saved?.mockScores || INITIAL_MOCK_SCORES);
   const [smsLogs, setSmsLogs] = useState(() => saved?.smsLogs || INITIAL_SMS_LOGS);
   const [inquiries, setInquiries] = useState(() => saved?.inquiries || INITIAL_INQUIRIES);
+  const [basic9Finance, setBasic9Finance] = useState(
+    () => saved?.basic9Finance || INITIAL_BASIC9_FINANCE
+  );
   const [gatewayConfig, setGatewayConfig] = useState(
     () => saved?.gatewayConfig || { provider: 'simulation', senderId: 'KPANDO ANG', apiKey: '' }
   );
@@ -111,6 +117,7 @@ export default function App() {
         if (cloudData.mockScores) setMockScores(cloudData.mockScores);
         if (cloudData.smsLogs) setSmsLogs(cloudData.smsLogs);
         if (cloudData.inquiries) setInquiries(cloudData.inquiries);
+        if (cloudData.basic9Finance) setBasic9Finance(cloudData.basic9Finance);
       })
       .catch(() => {
         // Offline or unauthenticated read: keep local cache
@@ -127,6 +134,7 @@ export default function App() {
       mockScores,
       smsLogs,
       inquiries,
+      basic9Finance,
       gatewayConfig
     };
     try {
@@ -140,10 +148,11 @@ export default function App() {
         studentsByClass,
         mockScores,
         smsLogs,
-        inquiries
+        inquiries,
+        basic9Finance
       }).catch(() => {});
     }
-  }, [theme, currentUser, schoolProfile, studentsByClass, mockScores, smsLogs, inquiries, gatewayConfig]);
+  }, [theme, currentUser, schoolProfile, studentsByClass, mockScores, smsLogs, inquiries, basic9Finance, gatewayConfig]);
 
   // Auto-open admin portal if session already authenticated on reload? Keep public website first with instant switch, or restore if desired.
   useEffect(() => {
@@ -256,6 +265,7 @@ export default function App() {
     setMockScores(INITIAL_MOCK_SCORES);
     setSmsLogs(INITIAL_SMS_LOGS);
     setInquiries(INITIAL_INQUIRIES);
+    setBasic9Finance(INITIAL_BASIC9_FINANCE);
     toast.success('Restored default Basic 9, 8 & 7 demo data!');
   };
 
@@ -303,6 +313,13 @@ export default function App() {
               />
             ))}
           </div>
+        )}
+        {printJob.type === 'expenditure' && (
+          <PrintableBasic9Expenditure
+            students={studentsByClass['Basic 9'] || []}
+            financeData={basic9Finance}
+            schoolProfile={schoolProfile}
+          />
         )}
       </div>
     );
@@ -499,6 +516,16 @@ export default function App() {
               />
             )}
 
+            {activeTab === 'expenditure' && (
+              <Basic9Expenditure
+                students={studentsByClass['Basic 9'] || []}
+                financeData={basic9Finance}
+                onSaveFinance={setBasic9Finance}
+                schoolProfile={schoolProfile}
+                currentUser={currentUser}
+                onPrintExpenditure={() => setPrintJob({ type: 'expenditure' })}
+              />
+            )}
             {activeTab === 'settings' && (
               <SchoolSettings
                 schoolProfile={schoolProfile}
