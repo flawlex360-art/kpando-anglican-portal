@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
-  MessageSquare, Send, CheckSquare, Square, Settings2, History, Users, Eye, EyeOff, Sparkles, CheckCircle2
+  MessageSquare, Send, CheckSquare, Square, Settings2, History, Users, Eye, EyeOff, Sparkles, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SMS_TEMPLATES } from '../constants/schoolConstants';
-import { dispatchParentSmsBatch, interpolateSmsTemplate } from '../utils/smsService';
+import { checkSmsServerStatus, dispatchParentSmsBatch, interpolateSmsTemplate } from '../utils/smsService';
 
 export default function SmsCenter({
   activeClass,
@@ -22,7 +22,19 @@ export default function SmsCenter({
   const [previewSn, setPreviewSn] = useState(rankedResults[0]?.sn || null);
   const [showGatewayPanel, setShowGatewayPanel] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+  const [serverStatus, setServerStatus] = useState(null);
   const [isSending, setIsSending] = useState(false);
+
+  React.useEffect(() => {
+    let active = true;
+    checkSmsServerStatus().then((status) => {
+      if (active && status) setServerStatus(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Keep selections synced if class changes
   React.useEffect(() => {
@@ -134,10 +146,15 @@ export default function SmsCenter({
             Send personalized PTA reminders, Basic 9 Mock aggregates, or custom alerts directly to parents&apos; phones.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-xs font-bold">
             Gateway: {gatewayConfig.provider === 'simulation' ? 'Simulation Mode (Sandbox)' : gatewayConfig.provider.toUpperCase()}
           </span>
+          {serverStatus?.serverKeyConfigured && serverStatus?.pinConfigured && (
+            <span className="px-3 py-1.5 rounded-xl bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 text-xs font-bold flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5" /> Vercel Key Active
+            </span>
+          )}
           <button
             onClick={() => setShowGatewayPanel(!showGatewayPanel)}
             className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-bold flex items-center gap-1.5"
@@ -150,13 +167,26 @@ export default function SmsCenter({
       {/* Collapsible SMS Gateway Configuration */}
       {showGatewayPanel && (
         <div className="glass-card p-5 space-y-4 border-l-4 border-l-amber-500">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-black">Ghanaian SMS Gateway Configuration</h3>
             <span className="text-[11px] text-slate-400">
-              Use Simulation Mode for testing, or add live mNotify / Arkesel / Hubtel credentials.
+              Use Simulation Mode for testing, or send live via Vercel Environment Variables + Dispatch PIN.
             </span>
           </div>
-          <div className="grid sm:grid-cols-3 gap-4">
+          {serverStatus?.serverKeyConfigured && (
+            <div
+              className={`rounded-xl px-3.5 py-2.5 text-xs border ${
+                serverStatus.pinConfigured
+                  ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200'
+              }`}
+            >
+              {serverStatus.pinConfigured
+                ? 'Vercel API key & PIN are active. Staff on any phone or laptop only need to enter the Server Dispatch PIN below — leave Manual API Key blank.'
+                : 'Vercel found ARKESEL_API_KEY, but SMS_DISPATCH_SECRET is not set yet. Add SMS_DISPATCH_SECRET in Vercel Settings -> Environment Variables and redeploy.'}
+            </div>
+          )}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-bold mb-1">Provider</label>
               <select
@@ -177,20 +207,54 @@ export default function SmsCenter({
                 maxLength={11}
                 value={gatewayConfig.senderId}
                 onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, senderId: e.target.value })}
-                placeholder="KPANDO ANG"
+                placeholder={serverStatus?.defaultSenderId ? `${serverStatus.defaultSenderId} (Vercel default)` : 'KpandoAng'}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
               />
+              {serverStatus?.defaultSenderId && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Leave blank to use Vercel default (<code className="font-mono">{serverStatus.defaultSenderId}</code>).
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">Server Dispatch PIN (Vercel)</label>
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  value={gatewayConfig.dispatchSecret || ''}
+                  onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, dispatchSecret: e.target.value })}
+                  placeholder={gatewayConfig.provider === 'simulation' ? 'Not needed in Simulation' : 'Enter staff Dispatch PIN...'}
+                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
+                  title={showPin ? 'Hide PIN' : 'Show PIN'}
+                >
+                  {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Matches <code className="font-mono">SMS_DISPATCH_SECRET</code> on Vercel to unlock the shared school API key from any device.
+              </p>
             </div>
             <div>
               <label className="block text-xs font-bold mb-1">
-                {gatewayConfig.provider === 'hubtel' ? 'Client ID' : 'API Key'}
+                {gatewayConfig.provider === 'hubtel' ? 'Client ID' : 'Manual API Key (Override)'}
               </label>
               <div className="relative">
                 <input
                   type={showApiKey ? 'text' : 'password'}
-                  value={gatewayConfig.apiKey}
+                  value={gatewayConfig.apiKey || ''}
                   onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, apiKey: e.target.value })}
-                  placeholder={gatewayConfig.provider === 'simulation' ? 'Not needed in Simulation' : 'Paste live API key...'}
+                  placeholder={
+                    gatewayConfig.provider === 'simulation'
+                      ? 'Not needed in Simulation'
+                      : serverStatus?.serverKeyConfigured
+                        ? 'Leave blank to use Vercel Key'
+                        : 'Paste live API key...'
+                  }
                   className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
                 />
                 <button
@@ -203,7 +267,7 @@ export default function SmsCenter({
                 </button>
               </div>
               <p className="text-[10px] text-slate-400 mt-1">
-                Saved privately in your browser and routed via <code className="font-mono">/api/send-sms</code> on Vercel (never committed to GitHub).
+                Optional local override saved only in this browser. Leave blank when using the Vercel key + PIN.
               </p>
             </div>
           </div>

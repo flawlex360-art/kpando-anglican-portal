@@ -109,7 +109,7 @@ export default function App() {
     () => saved?.basic9Finance || INITIAL_BASIC9_FINANCE
   );
   const [gatewayConfig, setGatewayConfig] = useState(
-    () => saved?.gatewayConfig || { provider: 'simulation', senderId: 'KPANDO ANG', apiKey: '' }
+    () => saved?.gatewayConfig || { provider: 'simulation', senderId: '', apiKey: '', dispatchSecret: '' }
   );
 
   // Print states: null | { type: 'broadsheet' } | { type: 'single-card', student } | { type: 'all-cards' }

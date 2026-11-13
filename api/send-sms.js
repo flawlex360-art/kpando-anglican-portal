@@ -1,6 +1,9 @@
+import crypto from 'node:crypto';
+
 /**
  * Vercel Serverless Function: Ghanaian SMS Gateway Proxy (Arkesel & mNotify)
- * Prevents browser CORS blocks and avoids committing live SMS API keys to the repository.
+ * Keeps ARKESEL_API_KEY strictly on Vercel (never committed to GitHub or client JS)
+ * and avoids browser CORS restrictions when dispatching SMS from any device.
  */
 
 function normalizeRecipients(messages) {
@@ -13,9 +16,24 @@ function normalizeRecipients(messages) {
     .filter((m) => m.phone.length >= 10 && m.message.length > 0);
 }
 
+function constantTimeMatch(a, b) {
+  const bufA = Buffer.from(String(a || ''), 'utf8');
+  const bufB = Buffer.from(String(b || ''), 'utf8');
+  if (bufA.length === 0 || bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      serverKeyConfigured: Boolean(String(process.env.ARKESEL_API_KEY || '').trim()),
+      pinConfigured: Boolean(String(process.env.SMS_DISPATCH_SECRET || '').trim()),
+      defaultSenderId: String(process.env.ARKESEL_SENDER_ID || '').trim().slice(0, 11)
+    });
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    return res.status(405).json({ error: 'Method not allowed. Use GET or POST.' });
   }
 
   const {
@@ -26,7 +44,7 @@ export default async function handler(req, res) {
     dispatchSecret = ''
   } = req.body || {};
 
-  const cleanSender = String(senderId || '').trim();
+  const cleanSender = String(senderId || process.env.ARKESEL_SENDER_ID || '').trim();
   if (cleanSender.length < 3 || cleanSender.length > 11) {
     return res.status(400).json({
       error: 'Sender ID must be between 3 and 11 characters.'
@@ -40,14 +58,19 @@ export default async function handler(req, res) {
     });
   }
 
-  // Resolve API key: caller-supplied from admin portal OR server env protected by SMS_DISPATCH_SECRET
+  // Prefer server-side ARKESEL_API_KEY (with Dispatch PIN verification) or browser-supplied override key
   let effectiveKey = String(apiKey || '').trim();
   if (!effectiveKey && provider === 'arkesel' && process.env.ARKESEL_API_KEY) {
     const expectedSecret = String(process.env.SMS_DISPATCH_SECRET || '').trim();
-    if (!expectedSecret || dispatchSecret !== expectedSecret) {
-      return res.status(401).json({
+    if (!expectedSecret) {
+      return res.status(400).json({
         error:
-          'Paste your Arkesel API key inside Parent SMS Center -> Configure Gateway (or set both ARKESEL_API_KEY and SMS_DISPATCH_SECRET in Vercel).'
+          'ARKESEL_API_KEY is present on Vercel, but SMS_DISPATCH_SECRET is not set. Add SMS_DISPATCH_SECRET in Vercel Environment Variables to unlock multi-device SMS securely.'
+      });
+    }
+    if (!constantTimeMatch(dispatchSecret.trim(), expectedSecret)) {
+      return res.status(401).json({
+        error: 'Invalid or missing Server Dispatch PIN. Check your PIN in Configure Gateway.'
       });
     }
     effectiveKey = String(process.env.ARKESEL_API_KEY).trim();
@@ -55,12 +78,11 @@ export default async function handler(req, res) {
 
   if (!effectiveKey) {
     return res.status(400).json({
-      error: 'Missing SMS gateway API key. Enter your key in Parent SMS Center -> Configure Gateway.'
+      error: 'Missing SMS gateway credentials. Configure ARKESEL_API_KEY + SMS_DISPATCH_SECRET on Vercel or enter a manual API key.'
     });
   }
 
   if (provider === 'arkesel') {
-    // Group recipients sharing exact same message text so static broadcasts send in one request
     const groupedByText = new Map();
     for (const item of validMessages) {
       if (!groupedByText.has(item.message)) groupedByText.set(item.message, []);

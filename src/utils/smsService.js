@@ -38,6 +38,22 @@ export function interpolateSmsTemplate(template, context) {
 }
 
 /**
+ * Checks whether Vercel environment variables (ARKESEL_API_KEY & SMS_DISPATCH_SECRET)
+ * are configured on /api/send-sms without exposing any secrets.
+ */
+export async function checkSmsServerStatus() {
+  try {
+    const res = await fetch('/api/send-sms', { method: 'GET' });
+    if (!res.ok) return null;
+    const contentType = res.headers?.get?.('content-type') || '';
+    if (contentType && !contentType.includes('application/json')) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Sends a batch of personalized SMS messages.
  * In Simulation Mode (or if gateway API key is absent), returns simulated receipts immediately.
  */
@@ -52,7 +68,8 @@ export async function dispatchParentSmsBatch({
   const provider = gatewayConfig?.provider || 'simulation';
   const apiKey = (gatewayConfig?.apiKey || '').trim();
   const dispatchSecret = (gatewayConfig?.dispatchSecret || '').trim();
-  const senderId = (gatewayConfig?.senderId || 'KpandoAng').trim().slice(0, 11);
+  const rawSenderId = (gatewayConfig?.senderId || '').trim().slice(0, 11);
+  const fallbackSenderId = rawSenderId || 'KpandoAng';
 
   const dispatches = recipients.map((rec) => {
     const formattedPhone = formatGhanaPhone(rec.parentPhone);
@@ -84,7 +101,7 @@ export async function dispatchParentSmsBatch({
   // Live gateway path when provider != simulation
   if (provider !== 'simulation') {
     if (!apiKey && !dispatchSecret) {
-      throw new Error(`Enter your ${provider.toUpperCase()} API key in Configure Gateway before sending live SMS.`);
+      throw new Error(`Enter your ${provider.toUpperCase()} API key or Server Dispatch PIN in Configure Gateway before sending live SMS.`);
     }
 
     const validDispatches = dispatches.filter((d) => d.phone && d.phone.length >= 10);
@@ -113,7 +130,7 @@ export async function dispatchParentSmsBatch({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             provider,
-            senderId,
+            senderId: rawSenderId,
             apiKey,
             dispatchSecret,
             messages: validDispatches.map((d) => ({
@@ -153,6 +170,10 @@ export async function dispatchParentSmsBatch({
       }
     }
 
+    if (!apiKey) {
+      throw new Error('Server /api/send-sms proxy is unreachable here. Send from the deployed Vercel site or enter a manual API key.');
+    }
+
     let deliveredCount = 0;
 
     for (const item of validDispatches) {
@@ -163,7 +184,7 @@ export async function dispatchParentSmsBatch({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               recipient: [item.phone],
-              sender: senderId,
+              sender: fallbackSenderId,
               message: item.message,
               is_schedule: false,
               schedule_date: ''
@@ -179,7 +200,7 @@ export async function dispatchParentSmsBatch({
               'api-key': apiKey
             },
             body: JSON.stringify({
-              sender: senderId,
+              sender: fallbackSenderId,
               message: item.message,
               recipients: [item.phone]
             })
@@ -196,7 +217,7 @@ export async function dispatchParentSmsBatch({
           deliveredCount++;
         } else if (provider === 'hubtel') {
           const res = await fetch(
-            `https://smsc.hubtel.com/v1/messages/send?clientsecret=${encodeURIComponent(gatewayConfig.clientSecret || '')}&clientid=${encodeURIComponent(apiKey)}&from=${encodeURIComponent(senderId)}&to=${encodeURIComponent(item.phone)}&content=${encodeURIComponent(item.message)}`
+            `https://smsc.hubtel.com/v1/messages/send?clientsecret=${encodeURIComponent(gatewayConfig.clientSecret || '')}&clientid=${encodeURIComponent(apiKey)}&from=${encodeURIComponent(fallbackSenderId)}&to=${encodeURIComponent(item.phone)}&content=${encodeURIComponent(item.message)}`
           );
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           deliveredCount++;
