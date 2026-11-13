@@ -26,9 +26,9 @@ function OfficialSingleReceiptCard({ receipt, schoolProfile = {}, copyLabel }) {
   const phone = schoolProfile.basic9TeacherPhone || '0592664865';
 
   return (
-    <div className="border-2 border-emerald-950 rounded-xl p-5 bg-white text-slate-900 space-y-3.5">
+    <div className="border-2 border-zinc-900 rounded-xl p-5 bg-white text-black space-y-3.5">
       {/* Header */}
-      <div className="flex items-start justify-between border-b-2 border-emerald-900 pb-3 gap-3">
+      <div className="flex items-start justify-between border-b-2 border-zinc-900 pb-3 gap-3">
         <div className="flex items-center gap-3">
           <img
             src="/anglican-crest.png"
@@ -39,27 +39,27 @@ function OfficialSingleReceiptCard({ receipt, schoolProfile = {}, copyLabel }) {
             }}
           />
           <div>
-            <h2 className="text-sm font-black uppercase tracking-wide text-emerald-950">
+            <h2 className="text-sm font-black uppercase tracking-wide text-black">
               {schoolName}
             </h2>
-            <p className="text-[10px] font-semibold text-slate-600">
+            <p className="text-[10px] font-semibold text-zinc-600">
               {schoolProfile.district || 'Kpando Municipal Education Directorate'} • Class Teacher Tel: {phone}
             </p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mt-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-800 mt-0.5">
               Official Basic 9 Fee Payment Receipt
             </p>
           </div>
         </div>
         <div className="text-right shrink-0">
           {copyLabel && (
-            <span className="inline-block px-2 py-0.5 mb-1 rounded bg-emerald-900 text-white text-[9px] font-black uppercase tracking-wider">
+            <span className="inline-block px-2 py-0.5 mb-1 rounded bg-zinc-900 text-white text-[9px] font-bold uppercase tracking-wider">
               {copyLabel}
             </span>
           )}
-          <div className="text-[11px] font-mono font-black text-slate-900">
+          <div className="text-[11px] font-mono font-black text-black">
             No: {receipt.receiptNo || 'KABS-B9-001'}
           </div>
-          <div className="text-[10px] font-semibold text-slate-600">
+          <div className="text-[10px] font-semibold text-zinc-600">
             Date: {formatDisplayDate(receipt.date)}
           </div>
         </div>
@@ -68,63 +68,63 @@ function OfficialSingleReceiptCard({ receipt, schoolProfile = {}, copyLabel }) {
       {/* Learner & Payer Info */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block">Learner Name</span>
-          <span className="font-black text-slate-950 uppercase">{receipt.studentName}</span>
+          <span className="text-[10px] font-bold uppercase text-zinc-500 block">Learner Name</span>
+          <span className="font-black text-black uppercase">{receipt.studentName}</span>
         </div>
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block">Index No. &amp; Class</span>
-          <span className="font-mono font-bold text-slate-900">
+          <span className="text-[10px] font-bold uppercase text-zinc-500 block">Index No. &amp; Class</span>
+          <span className="font-mono font-bold text-zinc-900">
             {receipt.indexNo || '-'} • Basic 9
           </span>
         </div>
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block">Received From</span>
-          <span className="font-semibold text-slate-900">{receipt.receivedFrom || receipt.studentName}</span>
+          <span className="text-[10px] font-bold uppercase text-zinc-500 block">Received From</span>
+          <span className="font-semibold text-zinc-900">{receipt.receivedFrom || receipt.studentName}</span>
         </div>
         <div>
-          <span className="text-[10px] font-bold uppercase text-slate-500 block">Being Payment For</span>
-          <span className="font-semibold text-slate-900">{receipt.description || 'Basic 9 Levy'}</span>
+          <span className="text-[10px] font-bold uppercase text-zinc-500 block">Being Payment For</span>
+          <span className="font-semibold text-zinc-900">{receipt.description || 'Basic 9 Levy'}</span>
         </div>
       </div>
 
       {/* Financial Amounts Strip */}
-      <div className="grid grid-cols-3 gap-2.5 pt-1">
-        <div className="rounded-lg border-2 border-emerald-800 bg-emerald-50/80 p-2.5 text-center">
-          <span className="block text-[9px] font-bold uppercase text-emerald-900">
+      <div className="grid grid-cols-3 gap-2.5 pt-1 tabular-nums">
+        <div className="rounded-lg border-2 border-zinc-900 bg-zinc-100 p-2.5 text-center">
+          <span className="block text-[9px] font-bold uppercase text-zinc-700">
             Amount Paid (This Receipt)
           </span>
-          <span className="text-base font-black text-emerald-950">
+          <span className="text-base font-black text-black">
             {formatCurrencyGhc(receipt.amountPaidNow)}
           </span>
         </div>
-        <div className="rounded-lg border border-slate-400 bg-slate-50 p-2.5 text-center">
-          <span className="block text-[9px] font-bold uppercase text-slate-600">
+        <div className="rounded-lg border border-zinc-400 bg-zinc-50 p-2.5 text-center">
+          <span className="block text-[9px] font-bold uppercase text-zinc-600">
             Total Paid to Date
           </span>
-          <span className="text-sm font-black text-slate-900">
+          <span className="text-sm font-black text-zinc-900">
             {formatCurrencyGhc(receipt.totalPaid)}
           </span>
         </div>
-        <div className="rounded-lg border border-amber-500 bg-amber-50/70 p-2.5 text-center">
-          <span className="block text-[9px] font-bold uppercase text-amber-900">
+        <div className="rounded-lg border border-zinc-400 bg-white p-2.5 text-center">
+          <span className="block text-[9px] font-bold uppercase text-zinc-600">
             Amount Left to Pay
           </span>
-          <span className="text-sm font-black text-amber-950">
+          <span className="text-sm font-black text-zinc-900">
             {formatCurrencyGhc(receipt.amountLeft)}
           </span>
         </div>
       </div>
 
       {/* Footer & Signatory */}
-      <div className="flex items-end justify-between pt-3 border-t border-slate-300 text-[10px] text-slate-700 gap-4">
+      <div className="flex items-end justify-between pt-3 border-t border-zinc-300 text-[10px] text-zinc-700 gap-4">
         <div>
           <span className="font-bold uppercase">Status: </span>
-          <span className="font-black text-emerald-900">{receipt.status || (receipt.amountLeft <= 0 ? 'Cleared' : 'Partial')}</span>
-          <span className="mx-2 text-slate-400">•</span>
+          <span className="font-black text-black uppercase">{receipt.status || (receipt.amountLeft <= 0 ? 'Cleared' : 'Partial')}</span>
+          <span className="mx-2 text-zinc-400">•</span>
           <span>{schoolProfile.academicYear || '2025/2026 Academic Year'}</span>
         </div>
         <div className="text-right min-w-[170px]">
-          <div className="border-b border-slate-500 h-5 mb-0.5" />
+          <div className="border-b border-zinc-700 h-5 mb-0.5" />
           <span className="font-bold uppercase text-[9px]">
             Received By: {receipt.recordedBy || schoolProfile.basic9TeacherName || 'Basic 9 Teacher'}
           </span>
@@ -221,9 +221,9 @@ export function PrintableGeneralReceipts({
           className="print-page print-receipts-landscape bg-white text-slate-900 p-4 max-w-[297mm] mx-auto border border-slate-300 shadow-lg"
         >
           {/* Compact Page Cut Guide */}
-          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-600 pb-1.5 mb-2 border-b border-slate-300">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-600 pb-1.5 mb-2 border-b border-zinc-300">
             <span>{schoolName} — General Learner Receipts ({titleNote})</span>
-            <span>Page {pageIdx + 1} of {pages.length} • A4 Landscape • Cut Along Outer Dashed Lines</span>
+            <span>Page {pageIdx + 1} of {pages.length} • A4 Landscape • Cut Along Dashed Lines</span>
           </div>
 
           {/* Fixed Height Landscape Grid: 2x2 (4 Large) or 3x2 (6 Compact) */}
@@ -239,15 +239,15 @@ export function PrintableGeneralReceipts({
               return (
                 <div
                   key={row.financeKey}
-                  className="border-2 border-dashed border-slate-600 rounded-xl p-1.5 bg-white flex flex-col overflow-hidden"
+                  className="border border-dashed border-zinc-500 rounded-xl p-1.5 bg-white flex flex-col overflow-hidden"
                 >
                   <div
-                    className={`border-2 border-emerald-950 rounded-lg flex-1 flex flex-col justify-between bg-white ${
+                    className={`border-2 border-zinc-900 rounded-lg flex-1 flex flex-col justify-between bg-white ${
                       isSixUp ? 'p-2.5' : 'p-3.5'
                     }`}
                   >
                     {/* Top Official Header */}
-                    <div className="flex items-start justify-between gap-2.5 border-b-2 border-emerald-900 pb-2">
+                    <div className="flex items-start justify-between gap-2.5 border-b-2 border-zinc-900 pb-2">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <img
                           src="/anglican-crest.png"
@@ -258,82 +258,82 @@ export function PrintableGeneralReceipts({
                           }}
                         />
                         <div className="min-w-0">
-                          <div className={`${isSixUp ? 'text-[11px]' : 'text-[13px]'} font-black uppercase tracking-wide text-emerald-950 truncate`}>
+                          <div className={`${isSixUp ? 'text-[11px]' : 'text-[13px]'} font-black uppercase tracking-wide text-black truncate`}>
                             {schoolName}
                           </div>
-                          <div className={`${isSixUp ? 'text-[8.5px]' : 'text-[9.5px]'} font-semibold text-slate-600 truncate`}>
+                          <div className={`${isSixUp ? 'text-[8.5px]' : 'text-[9.5px]'} font-semibold text-zinc-600 truncate`}>
                             {district} • Teacher Tel: {phone}
                           </div>
-                          <div className={`${isSixUp ? 'text-[8.5px]' : 'text-[10px]'} font-extrabold uppercase tracking-wider text-emerald-800 truncate mt-0.5`}>
+                          <div className={`${isSixUp ? 'text-[8.5px]' : 'text-[10px]'} font-bold uppercase tracking-wider text-zinc-800 truncate mt-0.5`}>
                             {titleNote}
                           </div>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="inline-block px-2 py-0.5 rounded bg-emerald-950 text-white text-[9px] font-mono font-bold">
+                        <span className="inline-block px-2 py-0.5 rounded bg-zinc-900 text-white text-[9px] font-mono font-bold">
                           {receiptCode}
                         </span>
-                        <div className={`${isSixUp ? 'text-[8.5px]' : 'text-[9.5px]'} font-semibold text-slate-700 mt-1`}>
+                        <div className={`${isSixUp ? 'text-[8.5px]' : 'text-[9.5px]'} font-semibold text-zinc-700 mt-1`}>
                           {dateLabel}
                         </div>
-                        <div className="text-[8.5px] font-bold uppercase text-slate-500">
+                        <div className="text-[8.5px] font-bold uppercase text-zinc-500">
                           Basic 9 • S/N {row.sn || globalNum}
                         </div>
                       </div>
                     </div>
 
                     {/* Learner Details Band */}
-                    <div className={`rounded-lg bg-slate-50 border border-slate-300 flex items-center justify-between gap-3 ${isSixUp ? 'px-2.5 py-1.5' : 'px-3 py-2'}`}>
+                    <div className={`rounded-lg bg-zinc-50 border border-zinc-300 flex items-center justify-between gap-3 ${isSixUp ? 'px-2.5 py-1.5' : 'px-3 py-2'}`}>
                       <div className="min-w-0">
-                        <span className="block text-[8.5px] font-bold uppercase tracking-wider text-slate-500">
+                        <span className="block text-[8.5px] font-bold uppercase tracking-wider text-zinc-500">
                           Learner Name
                         </span>
-                        <span className={`${isSixUp ? 'text-xs' : 'text-sm'} font-black uppercase text-slate-950 block truncate`}>
+                        <span className={`${isSixUp ? 'text-xs' : 'text-sm'} font-black uppercase text-black block truncate`}>
                           {row.name}
                         </span>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="block text-[8.5px] font-bold uppercase tracking-wider text-slate-500">
+                        <span className="block text-[8.5px] font-bold uppercase tracking-wider text-zinc-500">
                           Index No.
                         </span>
-                        <span className={`${isSixUp ? 'text-[11px]' : 'text-xs'} font-mono font-black text-slate-900`}>
+                        <span className={`${isSixUp ? 'text-[11px]' : 'text-xs'} font-mono font-black text-zinc-900`}>
                           {row.indexNo || '-'}
                         </span>
                       </div>
                     </div>
 
                     {/* Amount Paid & Amount Left Boxes */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className={`rounded-lg border-2 border-emerald-800 bg-emerald-50/80 text-center ${isSixUp ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
-                        <span className="block text-[9px] font-extrabold uppercase tracking-wider text-emerald-900">
+                    <div className="grid grid-cols-2 gap-3 tabular-nums">
+                      <div className={`rounded-lg border-2 border-zinc-900 bg-zinc-100 text-center ${isSixUp ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-zinc-700">
                           Amount Paid
                         </span>
-                        <span className={`${isSixUp ? 'text-sm' : 'text-lg'} font-black text-emerald-950 leading-tight block mt-0.5`}>
+                        <span className={`${isSixUp ? 'text-sm' : 'text-lg'} font-black text-black leading-tight block mt-0.5`}>
                           {formatCurrencyGhc(row.amountPaid)}
                         </span>
                       </div>
-                      <div className={`rounded-lg border-2 border-amber-600 bg-amber-50/70 text-center ${isSixUp ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
-                        <span className="block text-[9px] font-extrabold uppercase tracking-wider text-amber-900">
+                      <div className={`rounded-lg border border-zinc-500 bg-white text-center ${isSixUp ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-zinc-600">
                           Amount Left to Pay
                         </span>
-                        <span className={`${isSixUp ? 'text-sm' : 'text-lg'} font-black text-amber-950 leading-tight block mt-0.5`}>
+                        <span className={`${isSixUp ? 'text-sm' : 'text-lg'} font-black text-zinc-900 leading-tight block mt-0.5`}>
                           {formatCurrencyGhc(row.amountLeft)}
                         </span>
                       </div>
                     </div>
 
                     {/* Official Footer */}
-                    <div className="flex items-end justify-between pt-2 border-t border-slate-300 text-[9.5px] text-slate-700 gap-2">
+                    <div className="flex items-end justify-between pt-2 border-t border-zinc-300 text-[9.5px] text-zinc-700 gap-2">
                       <div>
                         <span>Status: </span>
-                        <strong className={row.amountLeft <= 0 ? 'text-emerald-800 uppercase' : 'text-amber-800 uppercase'}>
+                        <strong className="text-black uppercase">
                           {row.status}
                         </strong>
-                        <span className="ml-2 font-semibold text-slate-600">• Tel: {phone}</span>
+                        <span className="ml-2 font-semibold text-zinc-600">• Tel: {phone}</span>
                       </div>
                       <div className="text-right min-w-[125px]">
-                        <div className="border-b border-slate-600 h-4 mb-0.5" />
-                        <span className="font-bold uppercase text-[8px] tracking-wider text-slate-600">
+                        <div className="border-b border-zinc-700 h-4 mb-0.5" />
+                        <span className="font-bold uppercase text-[8px] tracking-wider text-zinc-600">
                           Class Teacher Sign
                         </span>
                       </div>
@@ -474,7 +474,7 @@ export default function Basic9ReceiptModal({
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 flex items-center justify-center">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
@@ -501,9 +501,9 @@ export default function Basic9ReceiptModal({
           <button
             type="button"
             onClick={() => setMode('amount')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
               mode === 'amount'
-                ? 'bg-emerald-800 text-white shadow-sm'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
                 : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800'
             }`}
           >
@@ -512,9 +512,9 @@ export default function Basic9ReceiptModal({
           <button
             type="button"
             onClick={() => setMode('general')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors ${
               mode === 'general'
-                ? 'bg-emerald-800 text-white shadow-sm'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
                 : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800'
             }`}
           >
@@ -556,7 +556,7 @@ export default function Basic9ReceiptModal({
                       value={amountInput}
                       onChange={(e) => setAmountInput(e.target.value)}
                       placeholder="e.g. 100.00"
-                      className="w-full px-3 py-2 rounded-xl border border-emerald-400 bg-white dark:bg-zinc-900 font-black text-emerald-700 dark:text-emerald-300 outline-none"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 font-black text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-slate-400 tabular-nums"
                     />
                   </div>
 
@@ -572,7 +572,7 @@ export default function Basic9ReceiptModal({
                             setReceiptNo(item.receiptNo);
                             setReceiptDate(item.date || new Date().toISOString().slice(0, 10));
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-800 dark:text-emerald-300"
+                          className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-[11px] font-semibold text-slate-700 dark:text-zinc-200"
                         >
                           {formatCurrencyGhc(item.amountPaidNow)} ({formatDisplayDate(item.date)})
                         </button>
@@ -581,7 +581,7 @@ export default function Basic9ReceiptModal({
                         <button
                           type="button"
                           onClick={() => setAmountInput(String(selectedLearner.amountPaid))}
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 text-[11px] font-bold text-slate-700 dark:text-zinc-200"
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 text-[11px] font-semibold text-slate-700 dark:text-zinc-200"
                         >
                           Use Full Total ({formatCurrencyGhc(selectedLearner.amountPaid)})
                         </button>
@@ -635,7 +635,7 @@ export default function Basic9ReceiptModal({
                         type="checkbox"
                         checked={includeDuplicate}
                         onChange={(e) => setIncludeDuplicate(e.target.checked)}
-                        className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-500"
                       />
                       Include School Copy (2-up on 1 A4)
                     </label>
@@ -709,19 +709,19 @@ export default function Basic9ReceiptModal({
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 text-emerald-900 dark:text-emerald-200">
-                  <Users className="w-5 h-5 shrink-0" />
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900/70 border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 text-slate-900 dark:text-zinc-100">
+                  <Users className="w-5 h-5 shrink-0 text-slate-500" />
                   <div>
                     <div className="font-black text-sm">
                       Ready to print {generalCount} learner receipt{generalCount === 1 ? '' : 's'} across {generalPageCount} A4 Landscape sheet{generalPageCount === 1 ? '' : 's'}
                     </div>
-                    <div className="text-[11px] opacity-85">
+                    <div className="text-[11px] text-slate-500 dark:text-zinc-400">
                       Printed horizontally on A4 Landscape ({perPage} large bordered receipts per sheet) showing Name, Index No., Amount Paid, Amount Left to Pay, Teacher Tel ({schoolProfile.basic9TeacherPhone || '0592664865'}), and scissor cut guides.
                     </div>
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-700 text-white text-[11px] font-bold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-bold">
                   <CheckCircle2 className="w-3.5 h-3.5" /> {perPage} Per A4 Landscape
                 </span>
               </div>
@@ -741,50 +741,50 @@ export default function Basic9ReceiptModal({
                       .map((row, idx) => (
                         <div
                           key={row.financeKey}
-                          className="border-2 border-dashed border-slate-500 rounded-xl p-1.5 bg-white text-slate-900"
+                          className="border border-dashed border-zinc-500 rounded-xl p-1.5 bg-white text-black"
                         >
-                          <div className="border-2 border-emerald-950 rounded-lg p-3 space-y-2 bg-white">
-                            <div className="flex items-start justify-between border-b-2 border-emerald-900 pb-1.5 gap-2">
+                          <div className="border-2 border-zinc-900 rounded-lg p-3 space-y-2 bg-white">
+                            <div className="flex items-start justify-between border-b-2 border-zinc-900 pb-1.5 gap-2">
                               <div>
-                                <div className="text-[11px] font-black uppercase text-emerald-950">
+                                <div className="text-[11px] font-black uppercase text-black">
                                   {schoolProfile.schoolName || 'Kpando Anglican Basic School'}
                                 </div>
-                                <div className="text-[9px] font-semibold text-slate-600">
+                                <div className="text-[9px] font-semibold text-zinc-600">
                                   Teacher Tel: {schoolProfile.basic9TeacherPhone || '0592664865'}
                                 </div>
-                                <div className="text-[9px] font-extrabold uppercase text-emerald-800">
+                                <div className="text-[9px] font-bold uppercase text-zinc-800">
                                   {titleNote}
                                 </div>
                               </div>
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-white text-[9px] font-mono font-bold shrink-0">
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-900 text-white text-[9px] font-mono font-bold shrink-0">
                                 GEN-B9-{String(idx + 1).padStart(3, '0')}
                               </span>
                             </div>
-                            <div className="rounded bg-slate-50 border border-slate-300 px-2.5 py-1.5 flex items-center justify-between gap-2">
+                            <div className="rounded bg-zinc-50 border border-zinc-300 px-2.5 py-1.5 flex items-center justify-between gap-2">
                               <div>
-                                <span className="block text-[8px] font-bold uppercase text-slate-500">Learner Name</span>
+                                <span className="block text-[8px] font-bold uppercase text-zinc-500">Learner Name</span>
                                 <span className="text-xs font-black uppercase">{row.name}</span>
                               </div>
                               <div className="text-right">
-                                <span className="block text-[8px] font-bold uppercase text-slate-500">Index No.</span>
+                                <span className="block text-[8px] font-bold uppercase text-zinc-500">Index No.</span>
                                 <span className="text-[11px] font-mono font-black">{row.indexNo || '-'}</span>
                               </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="rounded border-2 border-emerald-800 bg-emerald-50 px-2 py-1.5 text-center">
-                                <span className="block text-[8px] font-extrabold uppercase text-emerald-900">Amount Paid</span>
-                                <span className="text-sm font-black text-emerald-950">{formatCurrencyGhc(row.amountPaid)}</span>
+                            <div className="grid grid-cols-2 gap-2 tabular-nums">
+                              <div className="rounded border-2 border-zinc-900 bg-zinc-100 px-2 py-1.5 text-center">
+                                <span className="block text-[8px] font-bold uppercase text-zinc-700">Amount Paid</span>
+                                <span className="text-sm font-black text-black">{formatCurrencyGhc(row.amountPaid)}</span>
                               </div>
-                              <div className="rounded border-2 border-amber-600 bg-amber-50 px-2 py-1.5 text-center">
-                                <span className="block text-[8px] font-extrabold uppercase text-amber-900">Amount Left</span>
-                                <span className="text-sm font-black text-amber-950">{formatCurrencyGhc(row.amountLeft)}</span>
+                              <div className="rounded border border-zinc-500 bg-white px-2 py-1.5 text-center">
+                                <span className="block text-[8px] font-bold uppercase text-zinc-600">Amount Left</span>
+                                <span className="text-sm font-black text-zinc-900">{formatCurrencyGhc(row.amountLeft)}</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-[9px] text-slate-700">
+                            <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200 text-[9px] text-zinc-700">
                               <span>
-                                Status: <strong className="uppercase">{row.status}</strong> • Tel: {schoolProfile.basic9TeacherPhone || '0592664865'}
+                                Status: <strong className="uppercase text-black">{row.status}</strong> • Tel: {schoolProfile.basic9TeacherPhone || '0592664865'}
                               </span>
-                              <span className="uppercase font-bold text-[8px] text-slate-500">Class Teacher Sign</span>
+                              <span className="uppercase font-bold text-[8px] text-zinc-500">Class Teacher Sign</span>
                             </div>
                           </div>
                         </div>
@@ -814,7 +814,7 @@ export default function Basic9ReceiptModal({
                 onClose();
                 onPrintSingleReceipt(singleReceiptPreview);
               }}
-              className="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm"
+              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-zinc-200 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
             >
               <Printer className="w-4 h-4" /> Print Amount Receipt
             </button>
@@ -831,7 +831,7 @@ export default function Basic9ReceiptModal({
                   date: generalDate
                 });
               }}
-              className="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm"
+              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-zinc-200 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
             >
               <Printer className="w-4 h-4" /> Print General Receipts ({generalPageCount} A4 Landscape Page{generalPageCount === 1 ? '' : 's'})
             </button>
