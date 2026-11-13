@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Public noticeboard & school profile state + portal sync
+    match /portal_state/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /students/{studentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /mock_scores/{scoreId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /sms_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Public website visitors can submit admission inquiries; only admins read/update them
+    match /inquiries/{inquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+  }
+}
