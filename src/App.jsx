@@ -16,6 +16,7 @@ import {
   INITIAL_INQUIRIES,
   INITIAL_BASIC9_FINANCE
 } from './constants/schoolConstants';
+import { applyVerifiedBasic9Dobs } from './constants/basic9DobData';
 import { computeMockClassResults } from './utils/calculations';
 
 import PublicWebsite from './components/PublicWebsite';
@@ -70,6 +71,11 @@ function loadInitialState() {
       ) {
         parsed.currentUser = null;
       }
+      if (!parsed?.migrations?.basic9DobV1 && parsed?.studentsByClass?.['Basic 9']?.length > 0) {
+        const { studentsByClass: patchedStudents } = applyVerifiedBasic9Dobs(parsed.studentsByClass);
+        parsed.studentsByClass = patchedStudents;
+        parsed.migrations = { ...(parsed.migrations || {}), basic9DobV1: true };
+      }
       return parsed;
     }
   } catch (e) {
@@ -116,6 +122,7 @@ export default function App() {
       provider: gc.provider === 'arkesel' ? 'mnotify' : (gc.provider || 'simulation')
     };
   });
+  const [migrations, setMigrations] = useState(() => saved?.migrations || {});
 
   // Print states: null | { type: 'broadsheet' } | { type: 'single-card', student } | { type: 'all-cards' }
   const [printJob, setPrintJob] = useState(null);
@@ -133,7 +140,15 @@ export default function App() {
       .then((cloudData) => {
         if (!cloudData) return;
         if (cloudData.schoolProfile) setSchoolProfile(normalizeSchoolProfile(cloudData.schoolProfile));
-        if (cloudData.studentsByClass) setStudentsByClass(cloudData.studentsByClass);
+        if (cloudData.studentsByClass) {
+          if (!cloudData.migrations?.basic9DobV1 && cloudData.studentsByClass['Basic 9']?.length > 0) {
+            const { studentsByClass: patchedCloud } = applyVerifiedBasic9Dobs(cloudData.studentsByClass);
+            setStudentsByClass(patchedCloud);
+            setMigrations((prev) => ({ ...prev, ...(cloudData.migrations || {}), basic9DobV1: true }));
+          } else {
+            setStudentsByClass(cloudData.studentsByClass);
+          }
+        }
         if (cloudData.mockScores) setMockScores(cloudData.mockScores);
         if (cloudData.smsLogs) setSmsLogs(cloudData.smsLogs);
         if (cloudData.inquiries) setInquiries(cloudData.inquiries);
@@ -155,7 +170,8 @@ export default function App() {
       smsLogs,
       inquiries,
       basic9Finance,
-      gatewayConfig
+      gatewayConfig,
+      migrations
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -169,10 +185,11 @@ export default function App() {
         mockScores,
         smsLogs,
         inquiries,
-        basic9Finance
+        basic9Finance,
+        migrations
       }).catch(() => {});
     }
-  }, [theme, currentUser, schoolProfile, studentsByClass, mockScores, smsLogs, inquiries, basic9Finance, gatewayConfig]);
+  }, [theme, currentUser, schoolProfile, studentsByClass, mockScores, smsLogs, inquiries, basic9Finance, gatewayConfig, migrations]);
 
   // Auto-open admin portal if session already authenticated on reload? Keep public website first with instant switch, or restore if desired.
   useEffect(() => {
