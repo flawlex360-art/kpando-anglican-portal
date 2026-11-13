@@ -23,7 +23,7 @@ function formatDisplayDate(dateStr) {
 
 function OfficialSingleReceiptCard({ receipt, schoolProfile = {}, copyLabel }) {
   const schoolName = schoolProfile.schoolName || 'Kpando Anglican Basic School';
-  const phone = schoolProfile.phone || '0246951331';
+  const phone = schoolProfile.basic9TeacherPhone || '0592664865';
 
   return (
     <div className="border-2 border-emerald-950 rounded-xl p-5 bg-white text-slate-900 space-y-3.5">
@@ -43,7 +43,7 @@ function OfficialSingleReceiptCard({ receipt, schoolProfile = {}, copyLabel }) {
               {schoolName}
             </h2>
             <p className="text-[10px] font-semibold text-slate-600">
-              {schoolProfile.district || 'Kpando Municipal Education Directorate'} • Tel: {phone}
+              {schoolProfile.district || 'Kpando Municipal Education Directorate'} • Class Teacher Tel: {phone}
             </p>
             <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 mt-0.5">
               Official Basic 9 Fee Payment Receipt
@@ -185,7 +185,7 @@ export function PrintableGeneralReceipts({
   const titleNote = options?.titleNote?.trim() || 'Basic 9 Fee Status Receipt';
   const dateLabel = formatDisplayDate(options?.date);
   const schoolName = schoolProfile.schoolName || 'Kpando Anglican Basic School';
-  const phone = schoolProfile.phone || '0246951331';
+  const phone = schoolProfile.basic9TeacherPhone || '0592664865';
 
   const rows = useMemo(() => {
     if (filterMode === 'paidOnly') {
@@ -308,7 +308,7 @@ export function PrintableGeneralReceipts({
                       <strong className={row.amountLeft <= 0 ? 'text-emerald-800' : 'text-amber-800'}>
                         {row.status}
                       </strong>
-                      <span className="ml-1.5 text-slate-400">• Tel: {phone}</span>
+                      <span className="ml-1.5 text-slate-600 font-semibold">• Teacher Tel: {phone}</span>
                     </div>
                     <div className="text-right min-w-[85px]">
                       <div className="border-b border-slate-400 h-3.5 mb-0.5" />
@@ -745,6 +745,12 @@ export default function Basic9ReceiptModal({
                               <span className="block text-[8px] font-bold uppercase text-amber-800">Amount Left</span>
                               <span className="text-xs font-black text-amber-950">{formatCurrencyGhc(row.amountLeft)}</span>
                             </div>
+                          </div>
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-200 text-[9px] text-slate-600">
+                            <span>
+                              Status: <strong>{row.status}</strong> • Teacher Tel: {schoolProfile.basic9TeacherPhone || '0592664865'}
+                            </span>
+                            <span className="uppercase font-bold text-[8px]">Teacher Sign</span>
                           </div>
                         </div>
                       ))}

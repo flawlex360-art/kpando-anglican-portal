@@ -128,6 +128,16 @@ export default function SchoolSettings({ schoolProfile, onSaveProfile, onResetDe
             />
           </div>
           <div>
+            <label className="block font-bold mb-1">Basic 9 Teacher Tel (Receipts)</label>
+            <input
+              type="text"
+              value={draft.basic9TeacherPhone ?? '0592664865'}
+              onChange={(e) => setDraft({ ...draft, basic9TeacherPhone: e.target.value })}
+              placeholder="0592664865"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 font-mono outline-none"
+            />
+          </div>
+          <div>
             <label className="block font-bold mb-1">Academic Year</label>
             <input
               type="text"

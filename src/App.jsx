@@ -41,10 +41,15 @@ function normalizeSchoolProfile(profile) {
   if (profile.schoolName === 'Madifor Model Basic & JHS') {
     return INITIAL_SCHOOL_PROFILE;
   }
-  if (profile.phone === '024 812 4590 / 050 331 9802') {
-    return { ...profile, phone: INITIAL_SCHOOL_PROFILE.phone };
-  }
-  return profile;
+  const normalizedPhone =
+    profile.phone === '024 812 4590 / 050 331 9802'
+      ? INITIAL_SCHOOL_PROFILE.phone
+      : profile.phone;
+  return {
+    ...profile,
+    phone: normalizedPhone,
+    basic9TeacherPhone: profile.basic9TeacherPhone || INITIAL_SCHOOL_PROFILE.basic9TeacherPhone
+  };
 }
 
 function loadInitialState() {

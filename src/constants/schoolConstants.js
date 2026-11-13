@@ -68,6 +68,7 @@ export const INITIAL_SCHOOL_PROFILE = {
   academicYear: "2025/2026",
   headmasterName: "",
   basic9TeacherName: "",
+  basic9TeacherPhone: "0592664865",
   reopeningDate: "",
   examDate: "",
   timesOpen: 65,
