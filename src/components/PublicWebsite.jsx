@@ -2,22 +2,23 @@ import React, { useState, useEffect } from 'react';
 import {
   GraduationCap, ShieldCheck, Calendar, MapPin, Phone, Mail,
   BookOpen, Award, Users, CheckCircle2, ArrowRight, Bell,
-  Send, Sun, Moon, Menu, X, Sparkles, Clock
+  Send, Sun, Moon, Menu, X, Sparkles, Clock,
+  ChevronLeft, ChevronRight, Pause, Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const HERO_SLIDES = [
-  { src: '/hero/slide-01.webp', alt: 'School Prefects & Student Leaders' },
-  { src: '/hero/slide-02.webp', alt: 'Campus Learning & Activities' },
-  { src: '/hero/slide-03.webp', alt: 'Student Community Life' },
-  { src: '/hero/slide-04.webp', alt: 'Campus Grounds & Learners' },
-  { src: '/hero/slide-05.webp', alt: 'School Assembly & Activities' },
-  { src: '/hero/slide-06.webp', alt: 'Classroom & Study Session' },
-  { src: '/hero/slide-07.webp', alt: 'Academic Excellence in Action' },
-  { src: '/hero/slide-08.webp', alt: 'Co-curricular Engagement' },
-  { src: '/hero/slide-09.webp', alt: 'Student Collaboration' },
-  { src: '/hero/slide-10.webp', alt: 'Morning Campus Moments' },
-  { src: '/hero/slide-11.webp', alt: 'Modern School Campus Vision' }
+  { src: '/hero/slide-01.webp', alt: 'Student Prefects & School Leaders' },
+  { src: '/hero/slide-02.webp', alt: 'Practical Science & Innovation Session' },
+  { src: '/hero/slide-03.webp', alt: 'Upper Primary & JHS Learners' },
+  { src: '/hero/slide-04.webp', alt: 'School Practical Agriculture Project' },
+  { src: '/hero/slide-05.webp', alt: 'School Farm & Cabbage Cultivation' },
+  { src: '/hero/slide-06.webp', alt: 'Campus Garden Harvest' },
+  { src: '/hero/slide-07.webp', alt: 'Science & Lab Safety Goggles Session' },
+  { src: '/hero/slide-08.webp', alt: 'Laboratory Testing & Inquiry' },
+  { src: '/hero/slide-09.webp', alt: 'Hands-On Pipetting & Chemistry Practicals' },
+  { src: '/hero/slide-10.webp', alt: 'Circuit & STEM Group Experiment' },
+  { src: '/hero/slide-11.webp', alt: 'STEM Lighting & Teamwork' }
 ];
 
 export default function PublicWebsite({
@@ -31,14 +32,24 @@ export default function PublicWebsite({
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   // 2-second hero slideshow interval
   useEffect(() => {
+    if (isPaused) return undefined;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
     }, 2000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isPaused]);
+
+  const goToPrevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+  };
+
+  const goToNextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+  };
 
   // Progressively preload the upcoming slide so transitions stay smooth on weak networks
   useEffect(() => {
@@ -186,10 +197,25 @@ export default function PublicWebsite({
         )}
       </header>
 
-      {/* Hero Section with 2-Second Optimized Photo Slideshow */}
-      <section id="home" className="relative overflow-hidden bg-emerald-950 text-white min-h-[540px] flex items-center">
-        {/* Background Slideshow Layers */}
-        <div className="absolute inset-0 z-0">
+      {/* Full-Width Tall Cinema Banner (Ambient Fill + Uncropped 16:9 + Bottom Edge Dock) */}
+      <section id="home" className="relative bg-emerald-950 text-white">
+        <div className="relative w-full h-[500px] sm:h-[600px] lg:h-[680px] xl:h-[740px] max-h-[82vh] overflow-hidden bg-emerald-950">
+          {/* Layer 1: Soft Blurred Ambient Fill so wide screens have lush matching bokeh instead of black bars */}
+          {HERO_SLIDES.map((slide, idx) => (
+            <img
+              key={`ambient-${slide.src}`}
+              src={slide.src}
+              alt=""
+              aria-hidden="true"
+              loading={idx <= 1 ? 'eager' : 'lazy'}
+              decoding="async"
+              className={`absolute inset-0 w-full h-full object-cover scale-110 blur-2xl brightness-75 transition-opacity duration-700 ease-in-out ${
+                idx === currentSlide ? 'opacity-65' : 'opacity-0 pointer-events-none'
+              }`}
+            />
+          ))}
+
+          {/* Layer 2: Uncropped, Undistorted Full-Frame Campus Photo (All Angles Visible) */}
           {HERO_SLIDES.map((slide, idx) => (
             <img
               key={slide.src}
@@ -197,92 +223,142 @@ export default function PublicWebsite({
               alt={slide.alt}
               loading={idx <= 1 ? 'eager' : 'lazy'}
               decoding="async"
-              fetchPriority={idx === 0 ? 'high' : 'auto'}
-              className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-700 ease-in-out ${
-                idx === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.02]'
+              className={`absolute inset-0 w-full h-full object-contain object-top sm:object-center transition-opacity duration-700 ease-in-out drop-shadow-2xl ${
+                idx === currentSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             />
           ))}
-          {/* Balanced Contrast Scrim */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/35 to-black/55" />
-        </div>
 
-        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-14 lg:py-20 relative z-10 grid lg:grid-cols-12 gap-8 items-center">
-          {/* Wrapped Left Hero Content Card for Guaranteed Visibility */}
-          <div className="lg:col-span-7">
-            <div className="bg-emerald-950/75 backdrop-blur-md border border-white/25 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-900/80 border border-white/20 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm">
-                <Sparkles className="w-3.5 h-3.5" />
-                {schoolProfile.district} • {schoolProfile.academicYear}
+          {/* Gradient Scrim restricted to the bottom edge only so 72%+ of the photo stays wide open */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 sm:h-64 bg-gradient-to-t from-emerald-950 via-emerald-950/75 to-transparent" />
+
+          {/* Slim Edge-Docked Title, CTA & Slideshow Controls at Bottom Edge */}
+          <div className="absolute inset-x-0 bottom-0 z-10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-5 pt-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+              <div className="space-y-2.5 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-emerald-900/90 border border-white/25 text-[11px] font-bold uppercase tracking-wider text-amber-300 shadow">
+                  <Sparkles className="w-3 h-3 shrink-0" />
+                  <span>{schoolProfile.district} • {schoolProfile.academicYear}</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-white drop-shadow-lg">
+                  Shaping Confident Scholars &amp; BECE Distinction Leaders
+                </h1>
+                <p className="text-xs sm:text-sm text-emerald-50/95 max-w-xl drop-shadow">
+                  Welcome to <strong>{schoolProfile.schoolName}</strong> — Basic 7–9 instruction, 100% BECE Mock diagnostics, and instant parent SMS alerts.
+                </p>
+                <div className="flex flex-wrap gap-2.5 pt-1">
+                  <a
+                    href="#admissions"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-xs sm:text-sm shadow-lg transition-all"
+                  >
+                    Apply for Admission <ArrowRight className="w-4 h-4" />
+                  </a>
+                  <button
+                    onClick={onOpenLogin}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-white/30 text-white font-bold text-xs sm:text-sm backdrop-blur-sm transition-all"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Administrator &amp; WebSBA Portal
+                  </button>
+                </div>
               </div>
-              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight text-white drop-shadow">
-                Shaping Confident Scholars &amp; BECE Distinction Leaders
-              </h1>
-              <p className="text-emerald-50/95 text-base sm:text-lg max-w-2xl leading-relaxed drop-shadow-sm">
-                Welcome to <strong>{schoolProfile.schoolName}</strong>. We combine disciplined classroom instruction,
-                continuous Basic 9 BECE Mock Examination diagnostics, and instant parent SMS engagement to help every learner thrive.
-              </p>
-              <div className="flex flex-wrap gap-3 pt-1">
-                <a
-                  href="#admissions"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-sm shadow-lg transition-all"
-                >
-                  Apply for Admission <ArrowRight className="w-4 h-4" />
-                </a>
-                <button
-                  onClick={onOpenLogin}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold text-sm backdrop-blur-sm transition-all"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  Administrator &amp; WebSBA Portal
-                </button>
+
+              {/* Compact Bottom-Right Caption + Playback Controls */}
+              <div className="flex flex-col sm:flex-row lg:flex-col lg:items-end gap-2 shrink-0">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-xs font-semibold text-white">
+                  <span className="text-amber-300 font-extrabold">
+                    {String(currentSlide + 1).padStart(2, '0')}/{HERO_SLIDES.length}
+                  </span>
+                  <span className="truncate max-w-[220px]">{HERO_SLIDES[currentSlide].alt}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/20 w-fit">
+                  <button
+                    type="button"
+                    onClick={goToPrevSlide}
+                    aria-label="Previous slide"
+                    className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPaused((p) => !p)}
+                    aria-label={isPaused ? 'Resume slideshow' : 'Pause slideshow'}
+                    className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                  >
+                    {isPaused ? <Play className="w-3.5 h-3.5 text-amber-300" /> : <Pause className="w-3.5 h-3.5" />}
+                  </button>
+                  <div className="hidden sm:flex items-center gap-1 px-1">
+                    {HERO_SLIDES.map((slide, idx) => (
+                      <button
+                        key={slide.src}
+                        type="button"
+                        onClick={() => setCurrentSlide(idx)}
+                        aria-label={`Show slide ${idx + 1}`}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          idx === currentSlide ? 'w-5 bg-amber-400' : 'w-1.5 bg-white/45 hover:bg-white/80'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={goToNextSlide}
+                    aria-label="Next slide"
+                    className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Wrapped Right Stat & PTA Cards */}
-          <div className="lg:col-span-5 grid grid-cols-2 gap-4">
-            <div className="bg-emerald-950/75 backdrop-blur-md border border-white/25 rounded-2xl p-5 space-y-1 shadow-2xl">
-              <Users className="w-6 h-6 text-amber-300 mb-2" />
-              <div className="text-3xl font-black drop-shadow">{totalStudents}</div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-100">Enrolled JHS Learners</div>
-            </div>
-            <div className="bg-emerald-950/75 backdrop-blur-md border border-white/25 rounded-2xl p-5 space-y-1 shadow-2xl">
-              <GraduationCap className="w-6 h-6 text-emerald-300 mb-2" />
-              <div className="text-3xl font-black drop-shadow">{basic9Count}</div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-emerald-100">Basic 9 Mock Candidates</div>
-            </div>
-            <div className="col-span-2 bg-emerald-950/75 backdrop-blur-md border border-white/25 rounded-2xl p-5 space-y-2 shadow-2xl">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4" /> Next Scheduled PTA
-                </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-300/30 text-emerald-100 font-semibold">
-                  SMS Alerts Active
-                </span>
-              </div>
-              <div className="font-bold text-base text-white drop-shadow-sm">{schoolProfile.ptaMeeting?.title}</div>
-              <div className="text-xs text-emerald-100 flex flex-wrap gap-4">
-                <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-300" /> {schoolProfile.ptaMeeting?.date} • {schoolProfile.ptaMeeting?.time}</span>
-                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-amber-300" /> {schoolProfile.ptaMeeting?.venue}</span>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Slideshow Progress Dots */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-white/15">
-          {HERO_SLIDES.map((slide, idx) => (
-            <button
-              key={slide.src}
-              type="button"
-              onClick={() => setCurrentSlide(idx)}
-              aria-label={`Show slide ${idx + 1}`}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                idx === currentSlide ? 'w-6 bg-amber-400' : 'w-2 bg-white/50 hover:bg-white/80'
-              }`}
-            />
-          ))}
+        {/* Clean Stats & Scheduled PTA Architectural Bar Directly Below Banner */}
+        <div className="border-t border-white/15 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 grid sm:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
+            <div className="lg:col-span-3 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/10 border border-white/15">
+              <Users className="w-5 h-5 text-amber-300 shrink-0" />
+              <div>
+                <div className="text-xl font-black leading-none">{totalStudents}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-100/85 mt-0.5">
+                  Enrolled JHS Learners
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-3 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/10 border border-white/15">
+              <GraduationCap className="w-5 h-5 text-emerald-300 shrink-0" />
+              <div>
+                <div className="text-xl font-black leading-none">{basic9Count}</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-100/85 mt-0.5">
+                  Basic 9 Mock Candidates
+                </div>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-white/10 border border-white/15">
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 shrink-0" /> Next Scheduled PTA
+                </div>
+                <div className="font-bold text-sm text-white truncate">{schoolProfile.ptaMeeting?.title}</div>
+                <div className="text-[11px] text-emerald-100/85 flex flex-wrap gap-3 mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-amber-300" /> {schoolProfile.ptaMeeting?.date} • {schoolProfile.ptaMeeting?.time}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-amber-300" /> {schoolProfile.ptaMeeting?.venue}
+                  </span>
+                </div>
+              </div>
+              <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/30 border border-emerald-300/30 text-emerald-100 font-semibold shrink-0 w-fit">
+                SMS Alerts Active
+              </span>
+            </div>
+          </div>
         </div>
       </section>
 

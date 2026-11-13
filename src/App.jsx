@@ -34,7 +34,17 @@ const STORAGE_KEY = 'kpando_anglican_basic_school_v1';
 function loadInitialState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Upgrade any pre-rebrand cached identity automatically
+      if (parsed?.schoolProfile?.schoolName === 'Madifor Model Basic & JHS') {
+        parsed.schoolProfile = INITIAL_SCHOOL_PROFILE;
+      }
+      if (parsed?.gatewayConfig?.senderId === 'MADIFOR') {
+        parsed.gatewayConfig.senderId = 'KPANDO ANG';
+      }
+      return parsed;
+    }
   } catch (e) {
     // Fallback to defaults
   }
