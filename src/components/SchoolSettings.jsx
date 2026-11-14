@@ -175,6 +175,36 @@ export default function SchoolSettings({ schoolProfile, onSaveProfile, onResetDe
               className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 outline-none"
             />
           </div>
+          <div>
+            <label className="block font-bold mb-1">Official Phone (Public Site)</label>
+            <input
+              type="text"
+              value={draft.phone || ''}
+              onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+              placeholder="e.g. 0246951331"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 font-mono outline-none"
+            />
+          </div>
+          <div>
+            <label className="block font-bold mb-1">Official Email (Public Site)</label>
+            <input
+              type="email"
+              value={draft.email || ''}
+              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+              placeholder="e.g. info@kpandoanglican.edu.gh"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block font-bold mb-1">Campus Address (Public Site)</label>
+            <input
+              type="text"
+              value={draft.address || ''}
+              onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+              placeholder="e.g. Kpando, Volta Region, Ghana"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 outline-none"
+            />
+          </div>
         </div>
 
         {/* Upcoming PTA Configuration */}
