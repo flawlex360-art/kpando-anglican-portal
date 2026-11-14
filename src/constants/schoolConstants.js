@@ -103,6 +103,11 @@ export const SMS_TEMPLATES = [
     label: "Owing Fee Balance Reminder (Owing Only)",
     owingOnly: true,
     body: "Dear {parent_name}, kindly settle {student_name}'s Basic 9 fee balance. Amount left to pay: {amount_left} (Paid: {amount_paid} of {total_fee}). Thank you. - {school_name}"
+  },
+  {
+    id: "custom_notice",
+    label: "Custom Parent Message / Announcement",
+    body: "Dear {parent_name}, kindly be informed regarding {student_name} ({class}): - {school_name}"
   }
 ];
 

@@ -48,16 +48,15 @@ export function evaluateMnotifyResponse(upstreamOk, data = {}) {
  */
 export function migrateApprovedGatewayConfig(gatewayConfig, migrations = {}) {
   const raw = gatewayConfig && typeof gatewayConfig === 'object' ? gatewayConfig : {};
-  let provider = raw.provider === 'arkesel' ? 'mnotify' : raw.provider || 'mnotify';
+  let provider =
+    !raw.provider || raw.provider === 'arkesel' || raw.provider === 'simulation'
+      ? 'mnotify'
+      : raw.provider;
   const senderId = normalizeSmsSenderId(raw.senderId);
-  let didMigrate = false;
-
-  if (!migrations?.mnotifyApprovedV1) {
-    if (provider === 'simulation' || !raw.provider) {
-      provider = 'mnotify';
-    }
-    didMigrate = true;
-  }
+  const didMigrate =
+    !migrations?.mnotifyApprovedV1 ||
+    raw.provider !== provider ||
+    raw.senderId !== senderId;
 
   return {
     gatewayConfig: {
