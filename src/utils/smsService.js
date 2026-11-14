@@ -32,12 +32,12 @@ export function formatSmsName(name) {
 }
 
 /**
- * Formats currency using ASCII "GHS" so Ghanaian SMS gateways stay in GSM-7
- * encoding (160 chars/page) instead of triggering Unicode 70-char limits.
+ * Formats currency using "Cedis" (e.g. "200.00 Cedis") instead of "GHS" so messages
+ * stay in 160-char GSM-7 encoding and avoid Ghanaian telco MoMo-scam keyword filters.
  */
 export function formatSmsCurrency(amount) {
   const num = Math.max(0, Math.round((Number(amount) || 0) * 100) / 100);
-  return `GHS ${num.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${num.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cedis`;
 }
 
 export function isLearnerOwing(row) {
@@ -65,9 +65,9 @@ export function buildFeePaymentSms({
   const leftText = formatSmsCurrency(cleanLeft);
 
   if (cleanLeft <= 0) {
-    return `Dear ${parentDisplay}, payment of ${paidNowText} has been received for ${studentDisplay}'s Basic 9 fees (Total paid: ${totalPaidText}). Amount left to pay: GHS 0.00 (Cleared). Thank you. - ${schoolDisplay}`;
+    return `Dear ${parentDisplay}, ${schoolDisplay} has recorded ${paidNowText} for ${studentDisplay} (Basic 9 class contribution). Total recorded: ${totalPaidText}. Remaining: 0.00 Cedis (Completed). Thank you.`;
   }
-  return `Dear ${parentDisplay}, payment of ${paidNowText} has been received for ${studentDisplay}'s Basic 9 fees (Total paid: ${totalPaidText}). Amount left to pay: ${leftText}. Thank you. - ${schoolDisplay}`;
+  return `Dear ${parentDisplay}, ${schoolDisplay} has recorded ${paidNowText} for ${studentDisplay} (Basic 9 class contribution). Total recorded: ${totalPaidText}. Remaining: ${leftText}. Thank you.`;
 }
 
 export function interpolateSmsTemplate(template, context) {
@@ -83,10 +83,10 @@ export function interpolateSmsTemplate(template, context) {
     '{total_score}': context.totalScore !== undefined ? String(context.totalScore) : '-',
     '{position}': context.position || '-',
     '{mock_series}': context.mockSeries || 'Mock 1',
-    '{amount_paid}': context.amountPaid !== undefined ? formatSmsCurrency(context.amountPaid) : 'GHS 0.00',
-    '{amount_left}': context.amountLeft !== undefined ? formatSmsCurrency(context.amountLeft) : 'GHS 0.00',
-    '{total_fee}': context.targetFee !== undefined ? formatSmsCurrency(context.targetFee) : 'GHS 0.00',
-    '{amount_paid_now}': context.amountPaidNow !== undefined ? formatSmsCurrency(context.amountPaidNow) : 'GHS 0.00',
+    '{amount_paid}': context.amountPaid !== undefined ? formatSmsCurrency(context.amountPaid) : '0.00 Cedis',
+    '{amount_left}': context.amountLeft !== undefined ? formatSmsCurrency(context.amountLeft) : '0.00 Cedis',
+    '{total_fee}': context.targetFee !== undefined ? formatSmsCurrency(context.targetFee) : '0.00 Cedis',
+    '{amount_paid_now}': context.amountPaidNow !== undefined ? formatSmsCurrency(context.amountPaidNow) : '0.00 Cedis',
     '{pta_date}': context.ptaDate || 'TBA',
     '{pta_time}': context.ptaTime || '9:00 AM',
     '{pta_venue}': context.ptaVenue || 'School Assembly Hall',
@@ -396,7 +396,7 @@ export async function dispatchOwingFeeReminders({
   }
 
   const defaultBody =
-    'Dear {parent_name}, kindly settle {student_name}\'s Basic 9 fee balance. Amount left to pay: {amount_left} (Paid: {amount_paid} of {total_fee}). Thank you. - {school_name}';
+    'Dear {parent_name}, kindly note {student_name}\'s Basic 9 class contribution record at {school_name}. Recorded: {amount_paid} of {total_fee}. Remaining for completion: {amount_left}. Thank you.';
 
   const result = await dispatchParentSmsBatch({
     recipients: owingRows,

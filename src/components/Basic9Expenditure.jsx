@@ -231,7 +231,7 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
 }
 
 const DEFAULT_FEE_REMINDER_TEMPLATE =
-  "Dear {parent_name}, kindly settle {student_name}'s Basic 9 fee balance. Amount left to pay: {amount_left} (Paid: {amount_paid} of {total_fee}). Thank you. - {school_name}";
+  "Dear {parent_name}, kindly note {student_name}'s Basic 9 class contribution record at {school_name}. Recorded: {amount_paid} of {total_fee}. Remaining for completion: {amount_left}. Thank you.";
 
 export default function Basic9Expenditure({
   students = [],
