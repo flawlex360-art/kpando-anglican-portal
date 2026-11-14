@@ -1,6 +1,7 @@
 import React from 'react';
 import { JHS_SUBJECTS } from '../constants/schoolConstants';
 import { generateMockAdvisory } from '../utils/calculations';
+import ghanaCoaImg from '../assets/ghana-coa.svg?inline';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -35,7 +36,7 @@ export default function MockReportCard({
       {/* 1. Official GES & School Header */}
       <div className="text-center border-b-2 border-black pb-3 relative px-20 min-h-[82px] flex flex-col justify-center">
         <img
-          src="/ghana-coa.svg"
+          src={ghanaCoaImg}
           alt="Ghana Coat of Arms"
           className="absolute left-0 top-1 w-16 h-16 object-contain"
         />
