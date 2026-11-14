@@ -6,11 +6,14 @@ import toast from 'react-hot-toast';
 import { SMS_TEMPLATES } from '../constants/schoolConstants';
 import { computeBasic9FinanceSummary, formatCurrencyGhc, getLearnerFinanceKey } from '../utils/calculations';
 import {
+  DEFAULT_MNOTIFY_SENDER_ID,
   checkSmsServerStatus,
   dispatchParentSmsBatch,
   filterOwingRecipients,
   interpolateSmsTemplate,
-  isLearnerOwing
+  isLearnerOwing,
+  normalizeSmsSenderId,
+  sendSingleTestSms
 } from '../utils/smsService';
 
 export default function SmsCenter({
@@ -33,6 +36,48 @@ export default function SmsCenter({
   const [showPin, setShowPin] = useState(false);
   const [serverStatus, setServerStatus] = useState(null);
   const [isSending, setIsSending] = useState(false);
+  const [testPhone, setTestPhone] = useState(() => schoolProfile?.basic9TeacherPhone || schoolProfile?.phone || '0592664865');
+  const [sendingTest, setSendingTest] = useState(false);
+
+  const activeSenderId = normalizeSmsSenderId(gatewayConfig?.senderId);
+  const needsLiveCredentials =
+    gatewayConfig?.provider !== 'simulation' &&
+    !(gatewayConfig?.apiKey || '').trim() &&
+    !(gatewayConfig?.dispatchSecret || '').trim();
+
+  const handleSendTestSms = async () => {
+    if (!testPhone.trim()) {
+      toast.error('Enter a Ghanaian phone number to send a test SMS.');
+      return;
+    }
+    setSendingTest(true);
+    try {
+      const res = await sendSingleTestSms({
+        phone: testPhone,
+        schoolProfile,
+        gatewayConfig
+      });
+      if (res.failedCount > 0) {
+        const reason = res.failures?.[0]?.reason || 'Delivery failed';
+        toast.error(`Test SMS failed: ${reason}`);
+      } else {
+        onAddSmsLog({
+          id: `sms-${Date.now()}`,
+          timestamp: new Date().toLocaleString(),
+          category: 'Gateway Test SMS',
+          gateway: `${res.mode} (${activeSenderId})`,
+          recipientCount: 1,
+          deliveredCount: 1,
+          sampleMessage: res.dispatches?.[0]?.message || `Test SMS (${activeSenderId})`
+        });
+        toast.success(`Test SMS delivered to ${testPhone} with Sender ID ${activeSenderId}!`);
+      }
+    } catch (err) {
+      toast.error(`Test SMS error: ${err.message}`);
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   React.useEffect(() => {
     let active = true;
@@ -236,7 +281,10 @@ export default function SmsCenter({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 text-xs font-bold">
-            Gateway: {gatewayConfig.provider === 'simulation' ? 'Simulation Mode (Sandbox)' : gatewayConfig.provider.toUpperCase()}
+            Gateway:{' '}
+            {gatewayConfig.provider === 'simulation'
+              ? 'Simulation Mode (Sandbox)'
+              : `${gatewayConfig.provider.toUpperCase()} • ${activeSenderId}`}
           </span>
           {serverStatus?.serverKeyConfigured && serverStatus?.pinConfigured && (
             <span className="px-3 py-1.5 rounded-xl bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 text-xs font-bold flex items-center gap-1">
@@ -251,6 +299,21 @@ export default function SmsCenter({
           </button>
         </div>
       </div>
+
+      {needsLiveCredentials && !showGatewayPanel && (
+        <div className="glass-card p-3.5 border-l-4 border-l-amber-500 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <p className="text-slate-700 dark:text-zinc-200">
+            <strong>mNotify ({activeSenderId})</strong> is active. Enter your <strong>Server Dispatch PIN</strong> once on this device to unlock live SMS sending.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowGatewayPanel(true)}
+            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shrink-0"
+          >
+            Enter Dispatch PIN
+          </button>
+        </div>
+      )}
 
       {/* Collapsible SMS Gateway Configuration */}
       {showGatewayPanel && (
@@ -294,14 +357,12 @@ export default function SmsCenter({
                 maxLength={11}
                 value={gatewayConfig.senderId}
                 onChange={(e) => onSaveGatewayConfig({ ...gatewayConfig, senderId: e.target.value })}
-                placeholder={serverStatus?.defaultSenderId ? `${serverStatus.defaultSenderId} (Vercel default)` : 'KpandoAngli'}
+                placeholder={serverStatus?.defaultSenderId || DEFAULT_MNOTIFY_SENDER_ID}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
               />
-              {serverStatus?.defaultSenderId && (
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Leave blank to use Vercel default (<code className="font-mono">{serverStatus.defaultSenderId}</code>).
-                </p>
-              )}
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-semibold">
+                Approved mNotify ID: <code className="font-mono">{DEFAULT_MNOTIFY_SENDER_ID}</code>
+              </p>
             </div>
             <div>
               <label className="block text-xs font-bold mb-1">Server Dispatch PIN (Vercel)</label>
@@ -356,6 +417,29 @@ export default function SmsCenter({
               <p className="text-[10px] text-slate-400 mt-1">
                 Optional local override saved only in this browser. Leave blank when using the Vercel key + PIN.
               </p>
+            </div>
+          </div>
+          <div className="pt-3 border-t border-slate-200/70 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-slate-500 dark:text-zinc-400">
+              Verify live delivery with <strong className="font-mono text-slate-800 dark:text-zinc-200">{activeSenderId}</strong> using a single test SMS:
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="tel"
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+                placeholder="e.g. 0592664865"
+                className="w-40 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 text-xs font-mono outline-none"
+              />
+              <button
+                type="button"
+                disabled={sendingTest}
+                onClick={handleSendTestSms}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {sendingTest ? 'Testing...' : 'Send 1 Test SMS'}
+              </button>
             </div>
           </div>
         </div>

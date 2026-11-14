@@ -1,4 +1,9 @@
 import crypto from 'node:crypto';
+import {
+  DEFAULT_MNOTIFY_SENDER_ID,
+  evaluateMnotifyResponse,
+  normalizeSmsSenderId
+} from '../src/utils/mnotifyHelpers.js';
 
 /**
  * Vercel Serverless Function: mNotify Ghana SMS Gateway Proxy
@@ -52,11 +57,11 @@ async function sendMnotifyBatch(phones, text, sender, apiKey) {
       data = {};
     }
 
-    const ok = upstream.ok && (!data.status || String(data.status).toLowerCase() === 'success');
-    if (ok) {
-      return { deliveredCount: phones.length, failures: [] };
+    const evalResult = evaluateMnotifyResponse(upstream.ok, data);
+    if (evalResult.ok) {
+      return { deliveredCount: evalResult.acceptedCount ?? phones.length, failures: [] };
     }
-    const reason = data.message || data.error || `mNotify HTTP ${upstream.status}`;
+    const reason = evalResult.reason || `mNotify HTTP ${upstream.status}`;
     return {
       deliveredCount: 0,
       failures: phones.map((phone) => ({ phone, reason }))
@@ -75,7 +80,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       serverKeyConfigured: Boolean(String(process.env.MNOTIFY_API_KEY || '').trim()),
       pinConfigured: Boolean(String(process.env.SMS_DISPATCH_SECRET || '').trim()),
-      defaultSenderId: String(process.env.MNOTIFY_SENDER_ID || '').trim().slice(0, 11)
+      defaultSenderId: normalizeSmsSenderId(process.env.MNOTIFY_SENDER_ID || DEFAULT_MNOTIFY_SENDER_ID)
     });
   }
 
@@ -95,7 +100,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Unsupported server proxy provider: ${provider}` });
   }
 
-  const cleanSender = String(senderId || process.env.MNOTIFY_SENDER_ID || '').trim();
+  const cleanSender = normalizeSmsSenderId(senderId || process.env.MNOTIFY_SENDER_ID || DEFAULT_MNOTIFY_SENDER_ID);
   if (cleanSender.length < 3 || cleanSender.length > 11) {
     return res.status(400).json({
       error: 'Sender ID must be between 3 and 11 characters.'

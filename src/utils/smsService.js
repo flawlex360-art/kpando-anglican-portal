@@ -1,8 +1,14 @@
 /**
  * Ghanaian Parent SMS Service
- * Supports Simulation / Sandbox Mode (default when no API key is configured)
- * as well as live dispatch via mNotify or Hubtel.
+ * Supports Simulation / Sandbox Mode as well as live dispatch via mNotify or Hubtel.
  */
+import {
+  DEFAULT_MNOTIFY_SENDER_ID,
+  evaluateMnotifyResponse,
+  normalizeSmsSenderId
+} from './mnotifyHelpers.js';
+
+export { DEFAULT_MNOTIFY_SENDER_ID, normalizeSmsSenderId };
 
 export function formatGhanaPhone(phone) {
   if (!phone) return '';
@@ -122,11 +128,11 @@ export async function dispatchParentSmsBatch({
   className,
   gatewayConfig
 }) {
-  const provider = gatewayConfig?.provider || 'simulation';
+  const provider = gatewayConfig?.provider || 'mnotify';
   const apiKey = (gatewayConfig?.apiKey || '').trim();
   const dispatchSecret = (gatewayConfig?.dispatchSecret || '').trim();
-  const rawSenderId = (gatewayConfig?.senderId || '').trim().slice(0, 11);
-  const fallbackSenderId = rawSenderId || 'KpandoAngli';
+  const rawSenderId = normalizeSmsSenderId(gatewayConfig?.senderId);
+  const fallbackSenderId = rawSenderId || DEFAULT_MNOTIFY_SENDER_ID;
 
   const dispatches = recipients.map((rec) => {
     const formattedPhone = formatGhanaPhone(rec.parentPhone);
@@ -260,8 +266,9 @@ export async function dispatchParentSmsBatch({
           } catch {
             data = {};
           }
-          if (!res.ok || (data.status && String(data.status).toLowerCase() !== 'success')) {
-            throw new Error(data.message || data.error || `HTTP ${res.status}`);
+          const evalResult = evaluateMnotifyResponse(res.ok, data);
+          if (!evalResult.ok) {
+            throw new Error(evalResult.reason || `HTTP ${res.status}`);
           }
           deliveredCount++;
         } else if (provider === 'hubtel') {
@@ -403,4 +410,33 @@ export async function dispatchOwingFeeReminders({
     ...result,
     skippedClearedCount
   };
+}
+
+/**
+ * Dispatches a single quick test SMS via the active gateway (e.g., to verify
+ * live delivery with approved Sender ID KpandoAngli before sending a batch).
+ */
+export async function sendSingleTestSms({
+  phone,
+  schoolProfile,
+  gatewayConfig
+}) {
+  const schoolName = String(schoolProfile?.schoolName || 'Kpando Anglican Basic School').trim();
+  const senderLabel = normalizeSmsSenderId(gatewayConfig?.senderId);
+  const testBody = `Test SMS from ${schoolName} (${senderLabel}). mNotify SMS gateway is working properly.`;
+
+  return dispatchParentSmsBatch({
+    recipients: [
+      {
+        sn: 0,
+        name: 'Test Verification',
+        parentName: 'Staff Test',
+        parentPhone: phone
+      }
+    ],
+    messageTemplate: testBody,
+    schoolProfile,
+    className: 'Basic 9',
+    gatewayConfig
+  });
 }

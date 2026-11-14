@@ -1,4 +1,5 @@
 import { applyVerifiedBasic9Dobs } from '../constants/basic9DobData.js';
+import { DEFAULT_MNOTIFY_SENDER_ID, normalizeSmsSenderId } from './mnotifyHelpers.js';
 
 /**
  * Recursively removes undefined values so Firestore setDoc never rejects
@@ -126,8 +127,8 @@ export function extractSyncablePortalState(state) {
     basic9Finance: state.basic9Finance,
     migrations: state.migrations || {},
     gatewaySettings: {
-      provider: state?.gatewayConfig?.provider || 'simulation',
-      senderId: state?.gatewayConfig?.senderId || ''
+      provider: state?.gatewayConfig?.provider || 'mnotify',
+      senderId: normalizeSmsSenderId(state?.gatewayConfig?.senderId || DEFAULT_MNOTIFY_SENDER_ID)
     }
   };
 }

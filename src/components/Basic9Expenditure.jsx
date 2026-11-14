@@ -17,7 +17,8 @@ import {
   filterOwingRecipients,
   interpolateSmsTemplate,
   formatSmsCurrency,
-  formatSmsName
+  formatSmsName,
+  normalizeSmsSenderId
 } from '../utils/smsService';
 import { exportBasic9ExpenditureExcel } from '../utils/excelExport';
 import Basic9ReceiptModal from './Basic9Receipts';
@@ -1498,7 +1499,12 @@ export default function Basic9Expenditure({
 
             <div className="px-5 py-3.5 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/60 dark:bg-zinc-900/40">
               <span className="text-[11px] text-slate-500 dark:text-zinc-400">
-                Gateway: <strong>{gatewayConfig?.provider === 'simulation' ? 'Simulation Mode' : String(gatewayConfig?.provider || 'simulation').toUpperCase()}</strong>
+                Gateway:{' '}
+                <strong>
+                  {gatewayConfig?.provider === 'simulation'
+                    ? 'Simulation Mode'
+                    : `${String(gatewayConfig?.provider || 'mnotify').toUpperCase()} • ${normalizeSmsSenderId(gatewayConfig?.senderId)}`}
+                </strong>
               </span>
               <div className="flex items-center gap-2">
                 <button

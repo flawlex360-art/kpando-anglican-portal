@@ -47,6 +47,7 @@ import {
   extractSyncablePortalState,
   hasMeaningfulPortalData
 } from './utils/portalSync';
+import { migrateApprovedGatewayConfig } from './utils/mnotifyHelpers';
 
 const STORAGE_KEY = 'kpando_anglican_basic_school_live_v1';
 const LEGACY_DEMO_STORAGE_KEY = 'kpando_anglican_basic_school_v1';
@@ -77,9 +78,9 @@ function loadInitialState() {
       if (parsed?.schoolProfile) {
         parsed.schoolProfile = normalizeSchoolProfile(parsed.schoolProfile);
       }
-      if (parsed?.gatewayConfig?.senderId === 'MADIFOR') {
-        parsed.gatewayConfig.senderId = 'KPANDO ANG';
-      }
+      const migratedGw = migrateApprovedGatewayConfig(parsed?.gatewayConfig, parsed?.migrations);
+      parsed.gatewayConfig = migratedGw.gatewayConfig;
+      parsed.migrations = migratedGw.migrations;
       if (
         parsed?.currentUser &&
         !AUTHORIZED_EMAILS.includes(String(parsed.currentUser.email || '').toLowerCase())
@@ -129,15 +130,12 @@ export default function App() {
   const [basic9Finance, setBasic9Finance] = useState(
     () => saved?.basic9Finance || INITIAL_BASIC9_FINANCE
   );
-  const [gatewayConfig, setGatewayConfig] = useState(() => {
-    const gc = saved?.gatewayConfig;
-    if (!gc) return { provider: 'simulation', senderId: '', apiKey: '', dispatchSecret: '' };
-    return {
-      ...gc,
-      provider: gc.provider === 'arkesel' ? 'mnotify' : (gc.provider || 'simulation')
-    };
-  });
-  const [migrations, setMigrations] = useState(() => saved?.migrations || {});
+  const [gatewayConfig, setGatewayConfig] = useState(
+    () => saved?.gatewayConfig || migrateApprovedGatewayConfig(null, {}).gatewayConfig
+  );
+  const [migrations, setMigrations] = useState(
+    () => saved?.migrations || { mnotifyApprovedV1: true }
+  );
   const [cloudSync, setCloudSync] = useState({
     status: isFirebaseConfigured() ? 'checking' : 'offline',
     lastSyncedAt: '',
@@ -166,35 +164,41 @@ export default function App() {
   };
 
   const applyRemoteCloudData = useCallback((cloudData) => {
-    if (!cloudData) return { dobBackfilled: false };
+    if (!cloudData) return { dobBackfilled: false, gatewayMigrated: false };
     skipNextCloudPushRef.current = true;
     if (cloudData.schoolProfile) setSchoolProfile(normalizeSchoolProfile(cloudData.schoolProfile));
 
     let dobBackfilled = false;
+    let nextMigrations = cloudData.migrations || {};
     if (cloudData.studentsByClass) {
-      const backfill = applyCloudDobBackfillIfNeeded(cloudData.studentsByClass, cloudData.migrations);
+      const backfill = applyCloudDobBackfillIfNeeded(cloudData.studentsByClass, nextMigrations);
       setStudentsByClass(backfill.studentsByClass);
-      setMigrations(backfill.migrations);
+      nextMigrations = backfill.migrations;
       dobBackfilled = backfill.didUpdate;
-    } else if (cloudData.migrations) {
-      setMigrations(cloudData.migrations);
     }
 
     if (cloudData.mockScores) setMockScores(cloudData.mockScores);
     if (cloudData.smsLogs) setSmsLogs(cloudData.smsLogs);
     if (cloudData.inquiries) setInquiries(cloudData.inquiries);
     if (cloudData.basic9Finance) setBasic9Finance(cloudData.basic9Finance);
+
+    let gatewayMigrated = false;
     if (cloudData.gatewaySettings) {
+      const migratedGw = migrateApprovedGatewayConfig(cloudData.gatewaySettings, nextMigrations);
+      nextMigrations = migratedGw.migrations;
+      gatewayMigrated = migratedGw.didMigrate;
       setGatewayConfig((prev) => ({
         ...prev,
-        provider:
-          cloudData.gatewaySettings.provider === 'arkesel'
-            ? 'mnotify'
-            : (cloudData.gatewaySettings.provider || prev.provider),
-        senderId: cloudData.gatewaySettings.senderId ?? prev.senderId
+        provider: migratedGw.gatewayConfig.provider,
+        senderId: migratedGw.gatewayConfig.senderId
       }));
     }
-    return { dobBackfilled };
+
+    if (cloudData.studentsByClass || cloudData.migrations || cloudData.gatewaySettings) {
+      setMigrations(nextMigrations);
+    }
+
+    return { dobBackfilled, gatewayMigrated };
   }, []);
 
   // Sync theme to document root
@@ -227,14 +231,14 @@ export default function App() {
         });
 
         if (resolution === 'apply-cloud') {
-          const { dobBackfilled } = applyRemoteCloudData(data);
+          const { dobBackfilled, gatewayMigrated } = applyRemoteCloudData(data);
           cloudReadyToPushRef.current = true;
           setCloudSync({
             status: 'connected',
             lastSyncedAt: data?.updatedAt || new Date().toISOString(),
             message: 'Synced with Firebase Cloud Firestore'
           });
-          if (dobBackfilled && latestStateRef.current?.currentUser) {
+          if ((dobBackfilled || gatewayMigrated) && latestStateRef.current?.currentUser) {
             shouldAutoPushLocalRef.current = true;
           }
         } else if (resolution === 'push-local') {
@@ -526,14 +530,14 @@ export default function App() {
     try {
       const { exists, data } = await fetchPortalSnapshot();
       if (exists && hasMeaningfulPortalData(data)) {
-        const { dobBackfilled } = applyRemoteCloudData(data);
+        const { dobBackfilled, gatewayMigrated } = applyRemoteCloudData(data);
         cloudReadyToPushRef.current = true;
         setCloudSync({
           status: 'connected',
           lastSyncedAt: data?.updatedAt || new Date().toISOString(),
           message: 'Pulled latest school data from Firebase'
         });
-        if (dobBackfilled && latestStateRef.current?.currentUser) {
+        if ((dobBackfilled || gatewayMigrated) && latestStateRef.current?.currentUser) {
           shouldAutoPushLocalRef.current = true;
         }
         toast.success('Latest school data pulled from Firebase!');
