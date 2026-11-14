@@ -7,8 +7,9 @@ import {
   evaluateMnotifyResponse,
   normalizeSmsSenderId
 } from './mnotifyHelpers.js';
+import { formatLongOrdinalDate } from './calculations.js';
 
-export { DEFAULT_MNOTIFY_SENDER_ID, normalizeSmsSenderId };
+export { DEFAULT_MNOTIFY_SENDER_ID, normalizeSmsSenderId, formatLongOrdinalDate as formatSmsDate };
 
 export function formatGhanaPhone(phone) {
   if (!phone) return '';
@@ -87,7 +88,7 @@ export function interpolateSmsTemplate(template, context) {
     '{amount_left}': context.amountLeft !== undefined ? formatSmsCurrency(context.amountLeft) : 'GHS 0.00',
     '{total_fee}': context.targetFee !== undefined ? formatSmsCurrency(context.targetFee) : 'GHS 0.00',
     '{amount_paid_now}': context.amountPaidNow !== undefined ? formatSmsCurrency(context.amountPaidNow) : 'GHS 0.00',
-    '{pta_date}': context.ptaDate || 'TBA',
+    '{pta_date}': formatLongOrdinalDate(context.ptaDate) || 'TBA',
     '{pta_time}': context.ptaTime || '9:00 AM',
     '{pta_venue}': context.ptaVenue || 'School Assembly Hall',
     '{school_name}': context.schoolName || 'Kpando Anglican Basic School'

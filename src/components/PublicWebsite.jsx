@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, Pause, Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatLongOrdinalDate } from '../utils/calculations';
 
 const HERO_SLIDES = [
   { src: '/hero/slide-01.webp', alt: 'Student Prefects & School Leaders' },
@@ -106,7 +107,7 @@ export default function PublicWebsite({
             <span>
               <strong>Upcoming PTA:</strong> {schoolProfile.ptaMeeting?.title} —{' '}
               <span className="text-amber-300 font-semibold">
-                {schoolProfile.ptaMeeting?.date} at {schoolProfile.ptaMeeting?.time}
+                {formatLongOrdinalDate(schoolProfile.ptaMeeting?.date)} at {schoolProfile.ptaMeeting?.time}
               </span>{' '}
               ({schoolProfile.ptaMeeting?.venue})
             </span>
@@ -352,7 +353,7 @@ export default function PublicWebsite({
                     <div className="text-[11px] text-emerald-100/85 flex flex-wrap gap-3 mt-0.5">
                       {schoolProfile.ptaMeeting?.date && (
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-amber-300" /> {schoolProfile.ptaMeeting.date}
+                          <Clock className="w-3 h-3 text-amber-300" /> {formatLongOrdinalDate(schoolProfile.ptaMeeting.date)}
                           {schoolProfile.ptaMeeting?.time ? ` • ${schoolProfile.ptaMeeting.time}` : ''}
                         </span>
                       )}

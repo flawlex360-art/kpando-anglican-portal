@@ -352,6 +352,39 @@ export function calculateAgeFromDob(dobStr, referenceDate = new Date()) {
   return age >= 0 ? age : null;
 }
 
+const FULL_MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+];
+
+/**
+ * Formats an ISO (YYYY-MM-DD) or DMY (DD/MM/YYYY) date string into long ordinal format,
+ * e.g. "2026-12-03" -> "3rd December, 2026".
+ */
+export function formatLongOrdinalDate(dateStr) {
+  const raw = String(dateStr || '').trim();
+  if (!raw) return '';
+  const iso = normalizeDobIso(raw);
+  if (iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    const monthName = FULL_MONTH_NAMES[m - 1];
+    if (monthName) {
+      return `${getOrdinalSuffix(d)} ${monthName}, ${y}`;
+    }
+  }
+  return raw;
+}
+
 /**
  * Formats an ISO Date of Birth cleanly (e.g. '14 May 2011') without local timezone drift.
  */

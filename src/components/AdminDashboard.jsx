@@ -3,6 +3,7 @@ import {
   Users, Award, MessageSquare, FileSpreadsheet, Printer, TrendingUp,
   Bell, CheckCircle2, AlertTriangle, Calendar, ArrowUpRight, Inbox, Wallet
 } from 'lucide-react';
+import { formatLongOrdinalDate } from '../utils/calculations';
 
 export default function AdminDashboard({
   activeClass,
@@ -120,7 +121,7 @@ export default function AdminDashboard({
           </div>
           <div className="text-3xl font-black">{smsLogs.length}</div>
           <div className="text-xs text-slate-500 dark:text-zinc-400">
-            Next PTA: {schoolProfile.ptaMeeting?.date || 'Not scheduled'}
+            Next PTA: {formatLongOrdinalDate(schoolProfile.ptaMeeting?.date) || 'Not scheduled'}
           </div>
         </div>
       </div>
@@ -226,7 +227,7 @@ export default function AdminDashboard({
             <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2">
               <div className="font-bold text-sm text-amber-950 dark:text-amber-200">{schoolProfile.ptaMeeting.title}</div>
               <div className="text-xs text-amber-800 dark:text-amber-300">
-                <strong>Date &amp; Time:</strong> {schoolProfile.ptaMeeting?.date || '-'} at {schoolProfile.ptaMeeting?.time || '-'}
+                <strong>Date &amp; Time:</strong> {formatLongOrdinalDate(schoolProfile.ptaMeeting?.date) || '-'} at {schoolProfile.ptaMeeting?.time || '-'}
               </div>
               <div className="text-xs text-amber-800 dark:text-amber-300">
                 <strong>Venue:</strong> {schoolProfile.ptaMeeting?.venue || '-'}
