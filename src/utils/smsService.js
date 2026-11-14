@@ -167,8 +167,8 @@ export async function dispatchParentSmsBatch({
 
   // Live gateway path when provider != simulation
   if (provider !== 'simulation') {
-    if (!apiKey && !dispatchSecret) {
-      throw new Error(`Enter your ${provider.toUpperCase()} API key or Server Dispatch PIN in Configure Gateway before sending live SMS.`);
+    if (provider !== 'mnotify' && !apiKey && !dispatchSecret) {
+      throw new Error(`Enter your ${provider.toUpperCase()} API key in Configure Gateway before sending live SMS.`);
     }
 
     const validDispatches = dispatches.filter((d) => d.phone && d.phone.length >= 10);

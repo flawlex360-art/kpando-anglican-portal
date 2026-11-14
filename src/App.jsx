@@ -183,14 +183,20 @@ export default function App() {
     if (cloudData.basic9Finance) setBasic9Finance(cloudData.basic9Finance);
 
     let gatewayMigrated = false;
-    if (cloudData.gatewaySettings) {
+    if (cloudData.gatewaySettings || cloudData.serverGatewayConfig) {
       const migratedGw = migrateApprovedGatewayConfig(cloudData.gatewaySettings, nextMigrations);
       nextMigrations = migratedGw.migrations;
       gatewayMigrated = migratedGw.didMigrate;
+      const cloudKey = String(
+        cloudData?.gatewaySettings?.apiKey ||
+          cloudData?.serverGatewayConfig?.mnotifyApiKey ||
+          ''
+      ).trim();
       setGatewayConfig((prev) => ({
         ...prev,
         provider: migratedGw.gatewayConfig.provider,
-        senderId: migratedGw.gatewayConfig.senderId
+        senderId: migratedGw.gatewayConfig.senderId,
+        apiKey: cloudKey || prev.apiKey || ''
       }));
     }
 

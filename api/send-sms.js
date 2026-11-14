@@ -12,6 +12,23 @@ import {
  */
 
 const MNOTIFY_CONCURRENCY = 5;
+const FIRESTORE_PORTAL_DOC_URL =
+  'https://firestore.googleapis.com/v1/projects/kpando-anglican-portal/databases/(default)/documents/portal_state/kpando_anglican_basic_school';
+
+async function fetchFirestoreMnotifyKey() {
+  try {
+    const res = await fetch(FIRESTORE_PORTAL_DOC_URL, { method: 'GET' });
+    if (!res.ok) return '';
+    const doc = await res.json();
+    const serverGwKey =
+      doc?.fields?.serverGatewayConfig?.mapValue?.fields?.mnotifyApiKey?.stringValue || '';
+    const gwSettingsKey =
+      doc?.fields?.gatewaySettings?.mapValue?.fields?.apiKey?.stringValue || '';
+    return String(serverGwKey || gwSettingsKey || '').trim();
+  } catch {
+    return '';
+  }
+}
 
 function normalizeRecipients(messages) {
   if (!Array.isArray(messages)) return [];
@@ -77,8 +94,11 @@ async function sendMnotifyBatch(phones, text, sender, apiKey) {
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
+    const envKey = Boolean(String(process.env.MNOTIFY_API_KEY || '').trim());
+    const cloudKey = envKey ? false : Boolean(await fetchFirestoreMnotifyKey());
     return res.status(200).json({
-      serverKeyConfigured: Boolean(String(process.env.MNOTIFY_API_KEY || '').trim()),
+      serverKeyConfigured: envKey || cloudKey,
+      cloudKeyConfigured: cloudKey,
       pinConfigured: Boolean(String(process.env.SMS_DISPATCH_SECRET || '').trim()),
       defaultSenderId: normalizeSmsSenderId(process.env.MNOTIFY_SENDER_ID || DEFAULT_MNOTIFY_SENDER_ID)
     });
@@ -114,17 +134,11 @@ export default async function handler(req, res) {
     });
   }
 
-  // Prefer server-side MNOTIFY_API_KEY (with Dispatch PIN verification) or browser-supplied override key
+  // Resolve key: explicit request key -> Vercel MNOTIFY_API_KEY -> Firebase Firestore cloud key
   let effectiveKey = String(apiKey || '').trim();
   if (!effectiveKey && process.env.MNOTIFY_API_KEY) {
     const expectedSecret = String(process.env.SMS_DISPATCH_SECRET || '').trim();
-    if (!expectedSecret) {
-      return res.status(400).json({
-        error:
-          'MNOTIFY_API_KEY is present on Vercel, but SMS_DISPATCH_SECRET is not set. Add SMS_DISPATCH_SECRET in Vercel Environment Variables to unlock multi-device SMS securely.'
-      });
-    }
-    if (!constantTimeMatch(dispatchSecret.trim(), expectedSecret)) {
+    if (expectedSecret && !constantTimeMatch(dispatchSecret.trim(), expectedSecret)) {
       return res.status(401).json({
         error: 'Invalid or missing Server Dispatch PIN. Check your PIN in Configure Gateway.'
       });
@@ -133,8 +147,12 @@ export default async function handler(req, res) {
   }
 
   if (!effectiveKey) {
+    effectiveKey = await fetchFirestoreMnotifyKey();
+  }
+
+  if (!effectiveKey) {
     return res.status(400).json({
-      error: 'Missing SMS gateway credentials. Configure MNOTIFY_API_KEY + SMS_DISPATCH_SECRET on Vercel or enter a manual API key.'
+      error: 'Missing SMS gateway credentials. Configure MNOTIFY_API_KEY on Vercel or enter your mNotify API key in Configure Gateway.'
     });
   }
 

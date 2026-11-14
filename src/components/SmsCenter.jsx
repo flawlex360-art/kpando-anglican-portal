@@ -40,10 +40,14 @@ export default function SmsCenter({
   const [sendingTest, setSendingTest] = useState(false);
 
   const activeSenderId = normalizeSmsSenderId(gatewayConfig?.senderId);
+  const hasServerOrCloudKey = Boolean(
+    (gatewayConfig?.apiKey || '').trim() ||
+      (gatewayConfig?.dispatchSecret || '').trim() ||
+      serverStatus?.serverKeyConfigured ||
+      serverStatus?.cloudKeyConfigured
+  );
   const needsLiveCredentials =
-    gatewayConfig?.provider !== 'simulation' &&
-    !(gatewayConfig?.apiKey || '').trim() &&
-    !(gatewayConfig?.dispatchSecret || '').trim();
+    gatewayConfig?.provider !== 'simulation' && !hasServerOrCloudKey;
 
   const handleSendTestSms = async () => {
     if (!testPhone.trim()) {
@@ -286,9 +290,9 @@ export default function SmsCenter({
               ? 'Simulation Mode (Sandbox)'
               : `${gatewayConfig.provider.toUpperCase()} • ${activeSenderId}`}
           </span>
-          {serverStatus?.serverKeyConfigured && serverStatus?.pinConfigured && (
+          {hasServerOrCloudKey && (
             <span className="px-3 py-1.5 rounded-xl bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 text-xs font-bold flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Vercel Key Active
+              <ShieldCheck className="w-3.5 h-3.5" /> Key Active (All Devices)
             </span>
           )}
           <button
@@ -324,17 +328,9 @@ export default function SmsCenter({
               Use Simulation Mode for testing, or send live via Vercel Environment Variables + Dispatch PIN.
             </span>
           </div>
-          {serverStatus?.serverKeyConfigured && (
-            <div
-              className={`rounded-xl px-3.5 py-2.5 text-xs border ${
-                serverStatus.pinConfigured
-                  ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200'
-                  : 'bg-amber-50/80 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200'
-              }`}
-            >
-              {serverStatus.pinConfigured
-                ? 'Vercel mNotify API key & PIN are active. Staff on any phone or laptop only need to enter the Server Dispatch PIN below — leave Manual API Key blank.'
-                : 'Vercel found MNOTIFY_API_KEY, but SMS_DISPATCH_SECRET is not set yet. Add SMS_DISPATCH_SECRET in Vercel Settings -> Environment Variables and redeploy.'}
+          {hasServerOrCloudKey && (
+            <div className="rounded-xl px-3.5 py-2.5 text-xs border bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200">
+              mNotify API key and Sender ID (<strong>{activeSenderId}</strong>) are active and synced across your devices via Firebase Cloud. No extra PIN is required.
             </div>
           )}
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

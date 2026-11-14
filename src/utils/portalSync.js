@@ -118,6 +118,10 @@ export function applyCloudDobBackfillIfNeeded(studentsByClass, migrations) {
  * and excludes browser/Vercel SMS API secrets & Dispatch PINs).
  */
 export function extractSyncablePortalState(state) {
+  const cleanApiKey = String(state?.gatewayConfig?.apiKey || '').trim();
+  const cleanSenderId = normalizeSmsSenderId(state?.gatewayConfig?.senderId || DEFAULT_MNOTIFY_SENDER_ID);
+  const cleanProvider = state?.gatewayConfig?.provider || 'mnotify';
+
   return {
     schoolProfile: state.schoolProfile,
     studentsByClass: state.studentsByClass,
@@ -127,8 +131,18 @@ export function extractSyncablePortalState(state) {
     basic9Finance: state.basic9Finance,
     migrations: state.migrations || {},
     gatewaySettings: {
-      provider: state?.gatewayConfig?.provider || 'mnotify',
-      senderId: normalizeSmsSenderId(state?.gatewayConfig?.senderId || DEFAULT_MNOTIFY_SENDER_ID)
-    }
+      provider: cleanProvider,
+      senderId: cleanSenderId,
+      ...(cleanApiKey ? { apiKey: cleanApiKey } : {})
+    },
+    ...(cleanApiKey
+      ? {
+          serverGatewayConfig: {
+            mnotifyApiKey: cleanApiKey,
+            senderId: cleanSenderId,
+            provider: cleanProvider
+          }
+        }
+      : {})
   };
 }
