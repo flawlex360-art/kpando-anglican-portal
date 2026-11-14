@@ -12,6 +12,7 @@ import {
 import {
   ACADEMIC_DIVISIONS,
   CSSPS_TRANSITION_STEPS,
+  EXTERNAL_SBA_PORTAL_URL,
   WEEKLY_ACADEMIC_SCHEDULE
 } from '../../constants/publicSiteData';
 import { PublicPageHero } from './PublicSharedUI';
@@ -73,7 +74,7 @@ const SIMULATOR_PRESETS = {
   }
 };
 
-export default function PublicAcademicsTab({ schoolProfile, onNavigate, onOpenLogin }) {
+export default function PublicAcademicsTab({ schoolProfile, onNavigate }) {
   const [activeDivisionId, setActiveDivisionId] = useState('jhs');
   const [simScores, setSimScores] = useState(SIMULATOR_PRESETS.distinction.scores);
 
@@ -116,13 +117,12 @@ export default function PublicAcademicsTab({ schoolProfile, onNavigate, onOpenLo
         description="Explore our structured progression across Early Grade, Primary, and Basic 7–9 Junior High School — supported by 100% Mock WebSBA analytics and guided CSSPS Senior High preparation."
         onNavigate={onNavigate}
         rightContent={
-          <button
-            type="button"
-            onClick={onOpenLogin}
+          <a
+            href={EXTERNAL_SBA_PORTAL_URL}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-xs transition-colors"
           >
             <ShieldCheck className="w-4 h-4" /> Teacher WebSBA Portal
-          </button>
+          </a>
         }
       />
 

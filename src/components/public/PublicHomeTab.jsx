@@ -9,6 +9,7 @@ import { formatLongOrdinalDate } from '../../utils/calculations';
 import {
   AUDIENCE_SHORTCUTS,
   COMMUNITY_TESTIMONIALS,
+  EXTERNAL_SBA_PORTAL_URL,
   HERO_SLIDES,
   STARTER_NEWS_BULLETINS
 } from '../../constants/publicSiteData';
@@ -19,7 +20,6 @@ export default function PublicHomeTab({
   schoolProfile,
   totalStudents,
   basic9Count,
-  onOpenLogin,
   onNavigate
 }) {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -120,13 +120,12 @@ export default function PublicHomeTab({
                   >
                     <BookOpen className="w-4 h-4" /> Explore Academics &amp; BECE
                   </button>
-                  <button
-                    type="button"
-                    onClick={onOpenLogin}
+                  <a
+                    href={EXTERNAL_SBA_PORTAL_URL}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-white/30 text-white font-bold text-xs sm:text-sm backdrop-blur-sm transition-all"
                   >
-                    <ShieldCheck className="w-4 h-4" /> Staff &amp; WebSBA Login
-                  </button>
+                    <ShieldCheck className="w-4 h-4" /> WebSBA Grading Portal
+                  </a>
                 </div>
               </div>
 

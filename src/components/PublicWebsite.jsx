@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { formatLongOrdinalDate } from '../utils/calculations';
 import anglicanCrestImg from '../assets/anglican-crest.png';
-import { WEBSITE_TABS } from '../constants/publicSiteData';
+import { EXTERNAL_SBA_PORTAL_URL, WEBSITE_TABS } from '../constants/publicSiteData';
 import { ResourceReaderModal } from './public/PublicSharedUI';
 import PublicHomeTab from './public/PublicHomeTab';
 import PublicAboutTab from './public/PublicAboutTab';
@@ -195,15 +195,14 @@ export default function PublicWebsite({
               {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
             </button>
 
-            <button
-              type="button"
-              onClick={onOpenLogin}
+            <a
+              href={EXTERNAL_SBA_PORTAL_URL}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold shadow-md shadow-emerald-900/15 transition-all"
             >
               <ShieldCheck className="w-4 h-4" />
               <span className="hidden sm:inline">Admin Login</span>
               <span className="sm:hidden">Portal</span>
-            </button>
+            </a>
 
             <button
               type="button"
@@ -247,7 +246,6 @@ export default function PublicWebsite({
             schoolProfile={schoolProfile}
             totalStudents={totalStudents}
             basic9Count={basic9Count}
-            onOpenLogin={onOpenLogin}
             onNavigate={navigateToTab}
           />
         )}
@@ -263,7 +261,6 @@ export default function PublicWebsite({
           <PublicAcademicsTab
             schoolProfile={schoolProfile}
             onNavigate={navigateToTab}
-            onOpenLogin={onOpenLogin}
           />
         )}
         {activeTab === 'admissions' && (
@@ -292,7 +289,6 @@ export default function PublicWebsite({
             schoolProfile={schoolProfile}
             onNavigate={navigateToTab}
             onSubmitInquiry={onSubmitInquiry}
-            onOpenLogin={onOpenLogin}
           />
         )}
       </main>
@@ -381,13 +377,12 @@ export default function PublicWebsite({
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    onClick={onOpenLogin}
+                  <a
+                    href={EXTERNAL_SBA_PORTAL_URL}
                     className="font-bold text-emerald-800 dark:text-emerald-400 hover:underline"
                   >
-                    Staff &amp; Admin Portal →
-                  </button>
+                    SBA Grading Portal →
+                  </a>
                 </li>
               </ul>
             </div>

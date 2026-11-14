@@ -2,14 +2,13 @@ import React from 'react';
 import {
   Building2, Clock, ExternalLink, Mail, MapPin, Phone, ShieldCheck
 } from 'lucide-react';
-import { DEPARTMENT_CONTACTS } from '../../constants/publicSiteData';
+import { DEPARTMENT_CONTACTS, EXTERNAL_SBA_PORTAL_URL } from '../../constants/publicSiteData';
 import { PublicPageHero, WebsiteInquiryForm } from './PublicSharedUI';
 
 export default function PublicContactTab({
   schoolProfile,
   onNavigate,
-  onSubmitInquiry,
-  onOpenLogin
+  onSubmitInquiry
 }) {
   const cleanPhone = (schoolProfile.phone || '').replace(/\s+/g, '');
   const cleanB9Phone = (schoolProfile.basic9TeacherPhone || '').replace(/\s+/g, '');
@@ -131,13 +130,12 @@ export default function PublicContactTab({
               >
                 <MapPin className="w-4 h-4 text-amber-300" /> View Kpando Location on Google Maps
               </a>
-              <button
-                type="button"
-                onClick={onOpenLogin}
+              <a
+                href={EXTERNAL_SBA_PORTAL_URL}
                 className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-emerald-950 font-extrabold text-sm flex items-center justify-center gap-2 transition-colors"
               >
-                <ShieldCheck className="w-4 h-4" /> Enter Administrator &amp; Mock SBA Portal
-              </button>
+                <ShieldCheck className="w-4 h-4" /> Open SBA Grading Portal
+              </a>
             </div>
           </div>
 

@@ -10,6 +10,8 @@
  * directly with verified school records whenever ready.
  */
 
+export const EXTERNAL_SBA_PORTAL_URL = 'https://sba-grading-portal-flawlex360.vercel.app';
+
 export const WEBSITE_TABS = [
   { id: 'home', label: 'Home' },
   { id: 'about', label: 'About Us' },
