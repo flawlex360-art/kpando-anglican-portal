@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { JHS_SUBJECTS } from '../constants/schoolConstants';
 import { exportMockBroadsheetExcel } from '../utils/excelExport';
 import ghanaCoaImg from '../assets/ghana-coa.svg?inline';
+import anglicanCrestImg from '../assets/anglican-crest.png';
 
 export default function MockAnalysisBroadsheet({
   activeClass,
@@ -339,7 +340,7 @@ export function PrintableA4Broadsheet({ activeClass, activeMock, rankedResults, 
   return (
     <div className="print-a4-broadsheet bg-white text-black p-4 font-sans">
       <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-3">
-        <img src={ghanaCoaImg} alt="Ghana Coat of Arms" className="w-12 h-12 object-contain" />
+        <img src={ghanaCoaImg} alt="Ghana Coat of Arms" className="w-14 h-14 object-contain" />
         <div className="text-center">
           <div className="text-xs font-bold uppercase tracking-widest">Ghana Education Service • {schoolProfile.district}</div>
           <div className="text-lg font-black uppercase">{schoolProfile.schoolName}</div>
@@ -350,7 +351,7 @@ export function PrintableA4Broadsheet({ activeClass, activeMock, rankedResults, 
             Academic Year: {schoolProfile.academicYear} | No. On Roll: {rankedResults.length} | Aggregate = 4 Core + Best 2 Electives
           </div>
         </div>
-        <img src="/anglican-crest.png" alt="Kpando Anglican Basic School Crest" className="w-12 h-12 object-contain" />
+        <img src={anglicanCrestImg} alt="Kpando Anglican Basic School Crest" className="w-14 h-14 object-contain" />
       </div>
 
       <table className="w-full border-collapse border border-black text-[10px]">

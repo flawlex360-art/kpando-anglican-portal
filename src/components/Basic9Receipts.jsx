@@ -3,6 +3,7 @@ import {
   Printer, Receipt, X, FileCheck2, Users, LayoutGrid, CheckCircle2
 } from 'lucide-react';
 import { formatCurrencyGhc, computeBasic9FinanceSummary } from '../utils/calculations';
+import anglicanCrestImg from '../assets/anglican-crest.png';
 
 function formatDisplayDate(dateStr) {
   if (!dateStr) {
@@ -31,9 +32,9 @@ function OfficialSingleReceiptCard({ receipt, schoolProfile = {}, copyLabel }) {
       <div className="flex items-start justify-between border-b-2 border-zinc-900 pb-3 gap-3">
         <div className="flex items-center gap-3">
           <img
-            src="/anglican-crest.png"
+            src={anglicanCrestImg}
             alt="School Crest"
-            className="w-11 h-11 object-contain shrink-0"
+            className="w-14 h-14 object-contain shrink-0"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
@@ -250,9 +251,9 @@ export function PrintableGeneralReceipts({
                     <div className="flex items-start justify-between gap-2.5 border-b-2 border-zinc-900 pb-2">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <img
-                          src="/anglican-crest.png"
+                          src={anglicanCrestImg}
                           alt="Crest"
-                          className={`${isSixUp ? 'w-9 h-9' : 'w-11 h-11'} object-contain shrink-0`}
+                          className={`${isSixUp ? 'w-11 h-11' : 'w-14 h-14'} object-contain shrink-0`}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                           }}

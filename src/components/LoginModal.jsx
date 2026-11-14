@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, Lock, Mail, ArrowLeft, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import anglicanCrestImg from '../assets/anglican-crest.png';
 
 export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite }) {
   const [email, setEmail] = useState('');
@@ -62,11 +63,11 @@ export default function LoginModal({ schoolName, onLoginSuccess, onBackToSite })
           <ArrowLeft className="w-3.5 h-3.5" /> Back to School Website
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <img
-            src="/anglican-crest.png"
+            src={anglicanCrestImg}
             alt="Kpando Anglican Basic School Crest"
-            className="w-12 h-12 rounded-xl object-contain bg-white p-1 border border-slate-200 dark:border-zinc-700"
+            className="w-16 h-16 rounded-xl object-contain bg-white p-0.5 border border-slate-200 dark:border-zinc-700 shrink-0"
           />
           <div>
             <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">

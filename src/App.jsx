@@ -48,6 +48,7 @@ import {
   hasMeaningfulPortalData
 } from './utils/portalSync';
 import { migrateApprovedGatewayConfig } from './utils/mnotifyHelpers';
+import anglicanCrestImg from './assets/anglican-crest.png';
 
 const STORAGE_KEY = 'kpando_anglican_basic_school_live_v1';
 const LEGACY_DEMO_STORAGE_KEY = 'kpando_anglican_basic_school_v1';
@@ -683,9 +684,9 @@ export default function App() {
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <img
-                  src="/anglican-crest.png"
+                  src={anglicanCrestImg}
                   alt="Kpando Anglican Basic School Crest"
-                  className="w-9 h-9 rounded-xl object-contain bg-white p-0.5 border border-slate-200 dark:border-zinc-700"
+                  className="w-11 h-11 rounded-xl object-contain bg-white p-0.5 border border-slate-200 dark:border-zinc-700 shrink-0"
                 />
                 <div>
                   <div className="flex items-center gap-2">

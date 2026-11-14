@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatLongOrdinalDate } from '../utils/calculations';
+import anglicanCrestImg from '../assets/anglican-crest.png';
 
 const HERO_SLIDES = [
   { src: '/hero/slide-01.webp', alt: 'Student Prefects & School Leaders' },
@@ -131,12 +132,12 @@ export default function PublicWebsite({
 
       {/* Main Sticky Navbar */}
       <header className="sticky top-0 z-40 glass-panel border-b border-slate-200 dark:border-zinc-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between gap-4">
           <a href="#home" className="flex items-center gap-3 min-w-0">
             <img
-              src="/anglican-crest.png"
+              src={anglicanCrestImg}
               alt="Kpando Anglican Basic School Crest"
-              className="w-10 h-10 rounded-xl object-contain bg-white p-1 border border-slate-200 dark:border-zinc-700 shadow-sm shrink-0"
+              className="w-12 h-12 rounded-xl object-contain bg-white p-0.5 border border-slate-200 dark:border-zinc-700 shadow-sm shrink-0"
             />
             <div className="truncate">
               <div className="font-extrabold text-base sm:text-lg tracking-tight text-emerald-950 dark:text-white truncate">
@@ -624,8 +625,15 @@ export default function PublicWebsite({
       {/* Footer */}
       <footer className="mt-auto border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 py-6 px-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-zinc-400">
-          <div>
-            © {new Date().getFullYear()} <strong>{schoolProfile.schoolName}</strong>. All rights reserved.
+          <div className="flex items-center gap-2.5">
+            <img
+              src={anglicanCrestImg}
+              alt="Kpando Anglican Basic School Crest"
+              className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-zinc-700 shrink-0"
+            />
+            <span>
+              © {new Date().getFullYear()} <strong>{schoolProfile.schoolName}</strong>. All rights reserved.
+            </span>
           </div>
           <div>
             Powered by <strong>WebSBA Mock Analytics &amp; Parent SMS Engine</strong>

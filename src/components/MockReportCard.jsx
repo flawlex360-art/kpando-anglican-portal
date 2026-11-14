@@ -2,6 +2,7 @@ import React from 'react';
 import { JHS_SUBJECTS } from '../constants/schoolConstants';
 import { generateMockAdvisory } from '../utils/calculations';
 import ghanaCoaImg from '../assets/ghana-coa.svg?inline';
+import anglicanCrestImg from '../assets/anglican-crest.png';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -34,16 +35,16 @@ export default function MockReportCard({
   return (
     <div className="print-page bg-white text-black p-6 border border-zinc-300 shadow-lg max-w-[800px] mx-auto space-y-4 font-sans">
       {/* 1. Official GES & School Header */}
-      <div className="text-center border-b-2 border-black pb-3 relative px-20 min-h-[82px] flex flex-col justify-center">
+      <div className="text-center border-b-2 border-black pb-3 relative px-20 min-h-[86px] flex flex-col justify-center">
         <img
           src={ghanaCoaImg}
           alt="Ghana Coat of Arms"
-          className="absolute left-0 top-1 w-16 h-16 object-contain"
+          className="absolute left-0 top-0.5 w-[68px] h-[68px] object-contain"
         />
         <img
-          src="/anglican-crest.png"
+          src={anglicanCrestImg}
           alt="Kpando Anglican Basic School Crest"
-          className="absolute right-0 top-1 w-16 h-16 object-contain"
+          className="absolute right-0 top-0.5 w-[68px] h-[68px] object-contain"
         />
         <div className="text-xs font-bold uppercase tracking-widest">Ghana Education Service</div>
         <div className="text-xs font-semibold uppercase tracking-wider">{schoolProfile.district}</div>

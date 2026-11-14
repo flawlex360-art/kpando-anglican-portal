@@ -22,6 +22,7 @@ import {
 } from '../utils/smsService';
 import { exportBasic9ExpenditureExcel } from '../utils/excelExport';
 import Basic9ReceiptModal from './Basic9Receipts';
+import anglicanCrestImg from '../assets/anglican-crest.png';
 
 const STATUS_BADGE_STYLES = {
   Cleared: 'bg-slate-50 text-slate-800 dark:bg-zinc-900 dark:text-zinc-200 border-slate-300 dark:border-zinc-700',
@@ -53,9 +54,9 @@ export function PrintableBasic9Expenditure({ students = [], financeData = {}, sc
       <div className="flex items-center justify-between border-b-2 border-black pb-3 mb-4 gap-4">
         <div className="flex items-center gap-3">
           <img
-            src="/anglican-crest.png"
+            src={anglicanCrestImg}
             alt="School Crest"
-            className="w-12 h-12 object-contain"
+            className="w-16 h-16 object-contain"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
